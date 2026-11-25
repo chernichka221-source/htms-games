@@ -1,0 +1,2282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>БАЛАНС 3D — симулятор энергосистемы</title>
+<style>
+:root{
+  --bg:#1a2332; --panel:#243447; --panel-light:#2d4260;
+  --text:#e8dcc4; --text-dim:#9aa5b1;
+  --amber:#e8a33d; --copper:#b87333;
+  --green:#6ba368; --red:#d45454; --gold:#ffd966; --cold:#5c8b9e;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.4;user-select:none;-webkit-font-smoothing:antialiased}
+canvas{display:block;position:fixed;inset:0;z-index:1}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer}
+
+#loader{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2d4260 0%,#1a2332 80%);color:var(--amber);font-family:Georgia,serif;font-size:32px;letter-spacing:8px;animation:fadeIn .5s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.start-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(45,66,96,.85) 0%,rgba(26,35,50,.98) 75%);z-index:1500;backdrop-filter:blur(4px)}
+.start-content{text-align:center;max-width:620px;padding:40px;animation:fadeIn 1.4s ease}
+.start-title{font-family:Georgia,serif;font-size:96px;letter-spacing:14px;color:var(--amber);margin-bottom:12px;text-shadow:0 6px 50px rgba(232,163,61,.7)}
+.start-subtitle{font-family:Georgia,serif;font-size:18px;color:var(--text-dim);margin-bottom:32px;font-style:italic}
+.start-desc{font-size:16px;color:var(--text);margin:0 auto 36px;line-height:1.7;max-width:460px;opacity:.9}
+.start-buttons{display:flex;flex-direction:column;gap:14px;align-items:center}
+.btn-start{background:linear-gradient(180deg,var(--amber),var(--copper));color:#1a2332;border:none;padding:18px 72px;font-size:18px;font-weight:700;letter-spacing:3px;border-radius:8px;box-shadow:0 6px 28px rgba(232,163,61,.5);transition:transform .15s,box-shadow .15s}
+.btn-start:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(232,163,61,.7)}
+.btn-start:active{transform:scale(.97)}
+.btn-reset{background:transparent;border:1px solid var(--text-dim);color:var(--text-dim);padding:8px 24px;font-size:13px;border-radius:6px;transition:all .15s}
+.btn-reset:hover{color:var(--red);border-color:var(--red)}
+
+.game-ui{position:fixed;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column}
+
+.top-panel{pointer-events:auto;height:68px;background:linear-gradient(180deg,rgba(36,52,71,.95),rgba(36,52,71,.85));backdrop-filter:blur(8px);border-bottom:2px solid var(--copper);display:flex;align-items:center;padding:0 16px;gap:16px;flex-shrink:0;box-shadow:0 2px 20px rgba(0,0,0,.5)}
+.top-left{display:flex;gap:6px}
+.top-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:120px}
+.icon-btn{background:var(--panel-light);border:1px solid var(--copper);color:var(--text);width:40px;height:40px;font-size:18px;border-radius:6px;transition:all .15s}
+.icon-btn:hover{background:var(--copper)}
+.icon-btn:active{transform:scale(.94)}
+.stats{display:flex;gap:12px;flex:1;justify-content:center;flex-wrap:nowrap}
+.stat{display:flex;flex-direction:column;gap:4px;min-width:150px;background:rgba(45,66,96,.8);padding:6px 12px;border-radius:6px;border:1px solid rgba(184,115,51,.3);cursor:help;transition:border-color .2s}
+.stat:hover{border-color:var(--amber)}
+.stat-head{display:flex;align-items:baseline;gap:6px}
+.stat-icon{font-size:13px}
+.stat-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;flex:1}
+.stat-value{font-family:'Consolas','Monaco',monospace;font-size:17px;font-weight:700;color:var(--gold)}
+.stat-hint{font-size:9px;color:var(--text-dim);opacity:.7;margin-top:2px}
+.stat-bar{height:5px;background:rgba(0,0,0,.4);border-radius:3px;overflow:hidden;position:relative}
+.stat-bar-fill{height:100%;background:var(--green);transition:width .5s cubic-bezier(.4,0,.2,1),background .3s;border-radius:3px}
+.stat-bar-goal{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--gold);left:50%;box-shadow:0 0 6px var(--gold)}
+.day-info{font-size:13px;color:var(--amber);font-weight:700}
+.year-info{font-size:11px;color:var(--text-dim)}
+
+.camera-controls{position:fixed;top:88px;left:16px;z-index:15;display:flex;gap:8px}
+.camera-controls button{pointer-events:auto;background:rgba(36,52,71,.9);border:1px solid var(--copper);color:var(--text);padding:8px 14px;border-radius:6px;font-size:12px;backdrop-filter:blur(4px);transition:all .15s}
+.camera-controls button:hover{background:var(--copper);transform:translateY(-1px)}
+
+.bottom-panel{pointer-events:auto;margin-top:auto;height:72px;background:linear-gradient(0deg,rgba(36,52,71,.95),rgba(36,52,71,.85));backdrop-filter:blur(8px);border-top:2px solid var(--copper);display:flex;align-items:center;padding:0 20px;gap:14px;box-shadow:0 -2px 20px rgba(0,0,0,.5)}
+.turn-info{display:flex;flex-direction:column;gap:4px;flex:1}
+.turn-info-label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.attention-dots{display:flex;gap:6px;align-items:center;margin-top:4px}
+.attention-dot{width:12px;height:12px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px rgba(232,163,61,.7);transition:all .3s}
+.attention-dot.used{background:rgba(154,165,177,.3);box-shadow:none}
+.btn-end-turn{background:linear-gradient(180deg,var(--amber),var(--copper));color:#1a2332;border:none;padding:14px 32px;font-size:15px;font-weight:700;border-radius:8px;transition:all .15s;letter-spacing:1px;box-shadow:0 4px 20px rgba(232,163,61,.4)}
+.btn-end-turn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 30px rgba(232,163,61,.6)}
+.btn-end-turn:active:not(:disabled){transform:scale(.97)}
+.btn-end-turn:disabled{opacity:.4;cursor:not-allowed}
+.btn-end-turn.highlighted{animation:endPulse 1.6s ease-in-out infinite}
+@keyframes endPulse{0%,100%{box-shadow:0 0 0 3px var(--gold),0 0 25px var(--gold)}50%{box-shadow:0 0 0 6px var(--gold),0 0 40px var(--gold)}}
+
+.modal-root{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:500;animation:fadeIn .2s ease;backdrop-filter:blur(3px);pointer-events:auto}
+.modal-content{background:var(--panel);border:1px solid var(--copper);border-radius:12px;max-width:560px;width:92%;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.8);animation:modalIn .3s cubic-bezier(.34,1.56,.64,1);position:relative}
+@keyframes modalIn{from{opacity:0;transform:scale(.9) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-close{position:absolute;top:12px;right:12px;background:transparent;border:none;color:var(--text-dim);font-size:22px;width:32px;height:32px;border-radius:6px;transition:all .15s}
+.modal-close:hover{background:var(--panel-light);color:var(--text)}
+.modal-title{font-family:Georgia,serif;font-size:22px;color:var(--amber);margin-bottom:12px;padding-right:30px;display:flex;align-items:center;gap:10px}
+.modal-body{color:var(--text);line-height:1.6;margin-bottom:16px;font-size:14px}
+.modal-cause{background:rgba(212,84,84,.15);border-left:3px solid var(--red);padding:10px 12px;margin:12px 0;border-radius:4px;font-size:13px}
+.modal-cause.ok{background:rgba(107,163,104,.15);border-color:var(--green)}
+.modal-loss{font-size:20px;font-weight:700;color:var(--red);margin:8px 0}
+.modal-loss.low{color:var(--amber)}
+.modal-loss.zero{color:var(--green)}
+.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.btn-modal{background:var(--panel-light);border:1px solid var(--copper);color:var(--text);padding:12px 10px;font-size:13px;border-radius:6px;transition:all .15s;display:flex;flex-direction:column;gap:2px;align-items:center;text-align:center}
+.btn-modal:hover:not(:disabled){background:var(--copper);transform:translateY(-1px)}
+.btn-modal:disabled{opacity:.35;cursor:not-allowed}
+.btn-modal-cost{font-size:11px;color:var(--text-dim)}
+.btn-modal.primary{background:linear-gradient(180deg,var(--amber),var(--copper));color:#1a2332;border:none;font-weight:700}
+.btn-modal.primary .btn-modal-cost{color:rgba(26,35,50,.7)}
+.modal-advisor{background:rgba(232,163,61,.15);border-left:3px solid var(--amber);padding:10px 12px;margin-top:14px;font-size:13px;line-height:1.5;border-radius:4px}
+.modal-advisor b{color:var(--amber)}
+
+.talk-portrait{font-size:64px;text-align:center;margin-bottom:8px;animation:letterBounce .6s ease}
+@keyframes letterBounce{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.talk-name{text-align:center;color:var(--amber);font-weight:700;font-size:15px;margin-bottom:10px}
+.talk-text{background:rgba(45,66,96,.5);border-left:3px solid var(--copper);border-radius:6px;padding:14px 16px;font-size:14px;line-height:1.6;margin-bottom:14px;font-style:italic;position:relative}
+.talk-text::before{content:'«';position:absolute;left:4px;top:0;font-size:32px;color:var(--copper);opacity:.5;line-height:1}
+.talk-text::after{content:'»';position:absolute;right:6px;bottom:-8px;font-size:32px;color:var(--copper);opacity:.5;line-height:1}
+.talk-replies{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.talk-reply{background:var(--panel-light);border:1px solid var(--copper);color:var(--text);padding:12px 14px;border-radius:6px;font-size:13px;text-align:left;transition:all .15s;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.talk-reply:hover{background:var(--copper);transform:translateX(3px)}
+.talk-reply-effect{font-size:11px;color:var(--gold);font-weight:700;white-space:nowrap}
+
+.help-section{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(184,115,51,.2)}
+.help-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.help-section h3{color:var(--amber);font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.help-section p{font-size:13px;line-height:1.65;color:var(--text);margin-bottom:6px}
+.help-section p b{color:var(--gold)}
+.help-section .help-icon{font-size:18px}
+
+.advisor{position:fixed;bottom:92px;right:20px;max-width:340px;background:var(--panel);border:2px solid var(--amber);border-radius:12px;padding:14px 16px 14px 60px;box-shadow:0 12px 40px rgba(0,0,0,.7),0 0 25px rgba(232,163,61,.4);z-index:600;animation:advisorIn .4s cubic-bezier(.34,1.56,.64,1);font-size:13px;line-height:1.5;pointer-events:auto}
+@keyframes advisorIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.advisor-icon{position:absolute;left:12px;top:12px;font-size:32px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));animation:advisorBob 2s ease-in-out infinite}
+@keyframes advisorBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.advisor-btn{background:var(--amber);color:#1a2332;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:13px;margin-top:10px;transition:all .15s}
+.advisor-btn:hover{background:var(--gold)}
+.advisor-btn:active{transform:scale(.97)}
+
+.tooltip{position:fixed;background:var(--red);color:#fff;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:500;z-index:1000;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.6);animation:fadeIn .2s;transform:translate(-50%,-100%);margin-top:-8px;white-space:nowrap}
+.tooltip.info{background:var(--panel-light);border:1px solid var(--amber);color:var(--text);white-space:normal;max-width:280px;text-align:left;font-weight:400;line-height:1.5;font-size:12px}
+
+.turn-banner{position:fixed;top:90px;left:50%;transform:translateX(-50%);background:linear-gradient(180deg,var(--amber),var(--copper));color:#1a2332;padding:14px 48px;border-radius:12px;font-size:17px;font-weight:700;z-index:700;box-shadow:0 8px 40px rgba(0,0,0,.7);animation:bannerIn .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes bannerIn{from{opacity:0;transform:translateX(-50%) translateY(-30px) scale(.9)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+
+.float-text{position:fixed;font-size:22px;font-weight:700;pointer-events:none;z-index:800;animation:floatUp 1.4s ease-out forwards;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.2)}}
+
+.letter-portrait{font-size:64px;text-align:center;margin-bottom:14px;animation:letterBounce .6s ease}
+.letter-sign{text-align:right;color:var(--text-dim);font-style:italic;margin-top:12px;font-size:13px}
+
+.encyclopedia{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}
+.ency-card{background:var(--panel-light);border:1px solid rgba(184,115,51,.4);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.4}
+.ency-card.locked{opacity:.4}
+.ency-card-title{color:var(--amber);font-weight:700;margin-bottom:4px;font-size:13px}
+.ency-card-text{color:var(--text);font-size:12px}
+.ency-card-source{color:var(--text-dim);font-size:10px;margin-top:6px;font-style:italic}
+
+.ending-screen{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;padding:40px;animation:fadeIn 1.2s ease;overflow-y:auto;pointer-events:auto}
+.ending-screen.resonance{background:radial-gradient(circle at 50% 40%,rgba(232,163,61,.5) 0%,#1a2332 75%)}
+.ending-screen.showcase{background:radial-gradient(circle at 50% 40%,rgba(92,139,158,.5) 0%,#0f1820 75%)}
+.ending-screen.warmth{background:radial-gradient(circle at 50% 40%,rgba(232,163,61,.4) 0%,#241a10 75%)}
+.ending-screen.compromise{background:radial-gradient(circle at 50% 40%,rgba(154,165,177,.3) 0%,#1a2332 75%)}
+.ending-screen.fail-heat{background:radial-gradient(circle at 50% 40%,rgba(212,84,84,.6) 0%,#1a0000 75%)}
+.ending-screen.fail-budget{background:radial-gradient(circle at 50% 40%,rgba(90,90,90,.6) 0%,#0a0a0a 75%)}
+.ending-content{max-width:660px;text-align:center}
+.ending-title{font-family:Georgia,serif;font-size:48px;color:var(--amber);margin-bottom:24px;letter-spacing:6px;text-shadow:0 4px 40px rgba(232,163,61,.7)}
+.ending-text{font-size:18px;line-height:1.7;margin-bottom:32px;color:var(--text)}
+.ending-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+
+.diary-screen{position:fixed;inset:0;background:#000;z-index:950;display:flex;align-items:center;justify-content:center;padding:60px;animation:fadeIn 3s ease;pointer-events:auto}
+.diary-content{max-width:620px}
+.diary-text{font-family:'Segoe Script','Brush Script MT',Georgia,serif;font-size:22px;font-style:italic;line-height:1.9;color:#e8dcc4;white-space:pre-line}
+.diary-line{opacity:0;animation:diaryLineIn 1.2s ease forwards}
+@keyframes diaryLineIn{to{opacity:1}}
+.titr{position:fixed;bottom:40px;left:0;right:0;text-align:center;font-size:12px;color:var(--text-dim);animation:fadeIn 2s ease 2s both}
+
+@media(max-width:768px){
+  .top-panel{height:auto;flex-wrap:wrap;padding:8px;gap:8px}
+  .stats{order:3;width:100%;overflow-x:auto;justify-content:flex-start;padding-bottom:4px}
+  .stat{min-width:120px;flex-shrink:0}
+  .bottom-panel{height:auto;flex-wrap:wrap;padding:10px;gap:10px}
+  .btn-end-turn{width:100%}
+  .advisor{right:8px;left:8px;bottom:110px;max-width:none}
+  .start-title{font-size:64px;letter-spacing:8px}
+  .ending-title{font-size:32px}
+  .encyclopedia{grid-template-columns:1fr}
+  .modal-actions{grid-template-columns:1fr}
+  .camera-controls{top:auto;bottom:200px;left:8px}
+}
+</style>
+</head>
+<body>
+
+<div id="loader">БАЛАНС</div>
+
+<div id="startScreen" class="start-screen hidden">
+  <div class="start-content">
+    <h1 class="start-title">БАЛАНС</h1>
+    <p class="start-subtitle">3D-симулятор энергосистемы региона</p>
+    <p class="start-desc">Вы — главный инженер. 5 лет. Цель — снизить энергоёмкость на 30%. Не забывайте о людях.</p>
+    <div class="start-buttons">
+      <button id="btnStart" class="btn-start">Начать</button>
+      <button id="btnReset" class="btn-reset hidden">Сбросить прогресс</button>
+    </div>
+  </div>
+</div>
+
+<div id="gameUI" class="game-ui hidden">
+  <header class="top-panel">
+    <div class="top-left">
+      <button id="btnHelp" class="icon-btn" aria-label="Помощь">❓</button>
+      <button id="btnEncyclopedia" class="icon-btn" aria-label="Справочник">📖</button>
+      <button id="btnSound" class="icon-btn" aria-label="Звук">🔊</button>
+      <button id="btnResetGame" class="icon-btn" aria-label="Сброс">🔄</button>
+    </div>
+    <div class="stats">
+      <div class="stat" id="budgetStat">
+        <div class="stat-head"><span class="stat-icon">💰</span><span class="stat-label">Бюджет</span><span class="stat-value" id="budgetValue">150</span></div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="budgetBar" style="width:62%"></div></div>
+        <div class="stat-hint">деньги на ремонт и стройки</div>
+      </div>
+      <div class="stat" id="heatStat">
+        <div class="stat-head"><span class="stat-icon">🧡</span><span class="stat-label">Люди</span><span class="stat-value" id="heatValue">100</span></div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="heatBar" style="width:100%"></div></div>
+        <div class="stat-hint">доверие — ниже 25 = провал</div>
+      </div>
+      <div class="stat" id="energyStat">
+        <div class="stat-head"><span class="stat-icon">📉</span><span class="stat-label">Энергоёмкость</span><span class="stat-value" id="energyValue">100</span></div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="energyBar" style="width:0%;background:var(--cold)"></div><div class="stat-bar-goal"></div></div>
+        <div class="stat-hint">цель ≤ 70 к 20-му ходу</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <div class="day-info" id="dayInfo">День 1/20</div>
+      <div class="year-info" id="yearInfo">Год 1, Весна</div>
+    </div>
+  </header>
+
+  <div class="camera-controls">
+    <button id="btnOverview" title="Вернуться к обзору">🏙 Обзор</button>
+  </div>
+
+  <footer class="bottom-panel">
+    <div class="turn-info">
+      <div class="turn-info-label">Действия в этом ходу</div>
+      <div class="attention-dots" id="attentionDots"></div>
+    </div>
+    <button id="btnEndTurn" class="btn-end-turn">Завершить ход →</button>
+  </footer>
+</div>
+
+<div id="modalRoot" class="modal-root hidden">
+  <div id="modalContent" class="modal-content"></div>
+</div>
+
+<div id="advisor" class="advisor hidden"></div>
+<div id="tooltip" class="tooltip hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script>
+'use strict';
+
+const SAVE_KEY = 'balans3d_save_v3';
+const SEASON_NAMES = ['Весна','Лето','Осень','Зима'];
+const SEASON_ORDER = ['spring','summer','autumn','winter'];
+
+// ============================================================
+// ДАННЫЕ ОБЪЕКТОВ (Обновлённые позиции)
+// ============================================================
+const OBJECTS_INITIAL = [
+  // Верхний ряд (Z = -5)
+  {id:'tec',type:'source',name:'ТЭЦ',icon:'🏭',pos:[-9,0,-5],loss:55,repairCost:30,repairEffect:12,repairHeatImpact:-3,buildOptions:[],causeText:'Изношенные теплообменники и отсутствие изоляции.',factId:'fact_tec'},
+  {id:'boiler1',type:'source',name:'Котельная №1',icon:'🔥',pos:[-3,0,-5],loss:40,repairCost:20,repairEffect:8,repairHeatImpact:-2,buildOptions:[],causeText:'Устаревшие горелки, низкий КПД.',factId:'fact_boiler1'},
+  {id:'boiler2',type:'source',name:'Котельная №2',icon:'🔥',pos:[3,0,-5],loss:35,repairCost:20,repairEffect:8,repairHeatImpact:-2,buildOptions:[],causeText:'Накипь в трубах, потеря давления.',factId:'fact_boiler2'},
+  {id:'boiler3',type:'source',name:'Котельная №3',icon:'🔥',pos:[9,0,-5],loss:30,repairCost:18,repairEffect:7,repairHeatImpact:-1,buildOptions:[],causeText:'Отсутствие автоматики регулирования.',factId:'fact_boiler3'},
+  
+  // Средний ряд (Z = 1)
+  {id:'substation_a',type:'transit',name:'Подстанция А',icon:'⚡',pos:[-9,0,1],loss:20,repairCost:15,repairEffect:6,repairHeatImpact:0,buildOptions:[],causeText:'Устаревшие трансформаторы, перегрузка.',factId:'fact_sub_a'},
+  {id:'substation_b',type:'transit',name:'Подстанция Б',icon:'⚡',pos:[-3,0,1],loss:25,repairCost:18,repairEffect:7,repairHeatImpact:0,buildOptions:[],causeText:'Нет компенсации реактивной мощности.',factId:'fact_sub_b'},
+  {id:'substation_v',type:'transit',name:'Подстанция В',icon:'⚡',pos:[3,0,1],loss:15,repairCost:12,repairEffect:5,repairHeatImpact:0,buildOptions:[],causeText:'Плохой контакт на линиях.',factId:'fact_sub_v'},
+  {id:'substation_g',type:'transit',name:'Подстанция Г',icon:'⚡',pos:[9,0,1],loss:18,repairCost:15,repairEffect:6,repairHeatImpact:0,buildOptions:[],causeText:'Старые изоляторы.',factId:'fact_sub_g'},
+  
+  // Нижний ряд (Z = 7)
+  {id:'res1',type:'consumer',name:'Жилмассив №1',icon:'🏢',pos:[-9,0,7],loss:25,repairCost:15,repairEffect:5,repairHeatImpact:5,buildOptions:['build_insulation'],causeText:'Утепление домов плохое, люди топят сильнее.',factId:'fact_res1'},
+  {id:'res2',type:'consumer',name:'Жилмассив №2',icon:'🏢',pos:[-3,0,7],loss:22,repairCost:15,repairEffect:5,repairHeatImpact:5,buildOptions:['build_insulation'],causeText:'Старые окна, сквозняки.',factId:'fact_res2'},
+  {id:'res3',type:'consumer',name:'Жилмассив №3',icon:'🏢',pos:[3,0,7],loss:20,repairCost:12,repairEffect:4,repairHeatImpact:4,buildOptions:[],causeText:'Двери в подъездах не закрываются.',factId:'fact_res3'},
+  {id:'promzone',type:'consumer',name:'Промзона',icon:'🏗',pos:[9,0,7],loss:45,repairCost:35,repairEffect:10,repairHeatImpact:0,buildOptions:['build_smart_meter_industrial'],causeText:'Заводы работают на холостом ходу, освещение не выключается.',factId:'fact_prom'},
+  
+  // Самый нижний ряд (Z = 13)
+  {id:'res4',type:'consumer',name:'Жилмассив №4',icon:'🏢',pos:[-9,0,13],loss:18,repairCost:12,repairEffect:4,repairHeatImpact:4,buildOptions:[],causeText:'Нет счётчиков — никто не видит расход.',factId:'fact_res4'},
+  {id:'school',type:'consumer',name:'Школа',icon:'🏫',pos:[-3,0,13],loss:22,repairCost:14,repairEffect:5,repairHeatImpact:6,buildOptions:['build_insulation'],causeText:'Старые окна и сквозняки. Дети мёрзнут на уроках.',factId:'fact_school'},
+  {id:'res5',type:'consumer',name:'Жилмассив №5',icon:'🏢',pos:[3,0,13],loss:15,repairCost:10,repairEffect:3,repairHeatImpact:3,buildOptions:[],causeText:'Освещение в подъездах горит круглосуточно.',factId:'fact_res5'},
+  
+  // Вынесенные объекты (за городом)
+  {id:'les',type:'potential',name:'Лесхоз',icon:'🌲',pos:[-15,0,-11],loss:5,repairCost:0,repairEffect:0,repairHeatImpact:0,buildOptions:['build_wood_chips','build_solar'],causeText:'Щепа не используется как топливо.',factId:'fact_les'},
+  {id:'agro',type:'potential',name:'Агрокомплекс',icon:'🚜',pos:[15,0,-11],loss:10,repairCost:8,repairEffect:2,repairHeatImpact:0,buildOptions:['build_biogas'],causeText:'Биогаз не используется — газ уходит в атмосферу.',factId:'fact_agro'},
+  {id:'dump',type:'potential',name:'Свалка',icon:'🗑',pos:[15,0,13],loss:0,repairCost:0,repairEffect:0,repairHeatImpact:0,buildOptions:['build_sorting'],causeText:'Мусор не сортируется — вторичное сырьё теряется.',factId:'fact_dump'}
+];
+const BASELINE_LOSS = OBJECTS_INITIAL.reduce((s,o)=>s+o.loss,0);
+
+const BUILDS = {
+  build_biogas:{name:'Биогазовая станция',icon:'🌱',cost:50,attention:2,desc:'Сжигание отходов с получением газа. Нулевые потери на Агрокомплексе.'},
+  build_wood_chips:{name:'Котельная на щепе',icon:'🪵',cost:45,attention:2,desc:'Местное топливо из отходов лесхоза. +5 бюджета в течение 3 ходов.'},
+  build_sorting:{name:'Сортировочный цех',icon:'♻️',cost:60,attention:2,desc:'Вторичное сырьё вместо свалки. Снижение энергоёмкости.'},
+  build_insulation:{name:'Утепление домов',icon:'🏠',cost:25,attention:2,desc:'Тёплый дом = меньше отопления. +10 к доверию. Макс. 3 раза.'},
+  build_smart_meter_industrial:{name:'Умные счётчики',icon:'📊',cost:35,attention:2,desc:'Точный учёт, автоматическое отключение. Снижение потерь Промзоны.'},
+  build_solar:{name:'Солнечная станция',icon:'☀️',cost:55,attention:2,desc:'Местная генерация. Нужно 2+ локальных генератора, доступно с 13-го хода.'}
+};
+
+const ENCYCLOPEDIA = {
+  fact_kwh:{title:'Что такое кВт·ч',text:'Киловатт-час — единица энергии. 100 Вт лампочка за 10 часов = 1 кВт·ч.',source:'Белэнерго, 2023'},
+  fact_sub:{title:'Зачем нужны подстанции?',text:'Подстанции распределяют энергию от крупных источников (ТЭЦ) к потребителям. Они преобразуют напряжение, чтобы энергия доходила до домов и заводов с минимальными потерями. Без подстанций сеть бы не выдержала.',source:'Минэнерго РБ'},
+  fact_tec:{title:'Потери в теплосетях',text:'В старых сетях теряется до 40% тепла по пути к потребителю. Изоляция труб — самая дешёвая энергия.',source:'Минэнерго РБ'},
+  fact_sub_a:{title:'БелАЭС и электроотопление',text:'БелАЭС даёт избыток электроэнергии. Электроотопление дешевле газа, но требует модернизации сетей.',source:'Белэнерго, 2024'},
+  fact_sub_b:{title:'Реактивная мощность',text:'Реактивная мощность «гуляет» по сетям, не выполняя полезной работы. Компенсаторы возвращают её.',source:'Учебник ТОЭ'},
+  fact_boiler1:{title:'КПД котлов',text:'Старые газовые котлы имеют КПД 70–80%. Современные — 92–95%.',source:'Минэнерго РБ'},
+  fact_boiler2:{title:'Накипь в трубах',text:'Слой накипи 1 мм увеличивает расход топлива на 5–8%.',source:'Теплотехника'},
+  fact_boiler3:{title:'Автоматика',text:'Погодозависимая автоматика снижает расход газа на 15–20%.',source:'Минэнерго РБ'},
+  fact_sub_v:{title:'Потери на контактах',text:'Плохой контакт = локальный нагрев = потери. Обслуживание соединений — самое дешёвое.',source:'ПУЭ'},
+  fact_sub_g:{title:'Изоляторы',text:'Загрязнённые изоляторы теряют до 10% энергии на утечку.',source:'Белэнерго'},
+  fact_prom:{title:'Холостой ход',text:'Работа оборудования «на холостом ходу» тратит до 30% энергии впустую.',source:'IEA, 2023'},
+  fact_res1:{title:'Утепление домов',text:'Тёплый дом снижает расход на отопление на 20–40%.',source:'ЖКХ РБ'},
+  fact_res2:{title:'Окна и сквозняки',text:'Замена окон — 15% экономии на отоплении.',source:'ЖКХ РБ'},
+  fact_res3:{title:'Двери подъездов',text:'Незакрытая дверь = потеря 5–10% тепла за зиму.',source:'ЖКХ РБ'},
+  fact_res4:{title:'Счётчик как инструмент',text:'Счётчик не экономит энергию сам. Но он показывает, куда она уходит.',source:'IEA, 2023'},
+  fact_res5:{title:'Освещение в подъездах',text:'Круглосуточное освещение = 3–5% потребления дома.',source:'ЖКХ РБ'},
+  fact_school:{title:'Школы и энергия',text:'Школы — это 4% потребления бюджета района. Тёплый класс = лучше учёба.',source:'Минобразования РБ'},
+  fact_agro:{title:'Биогаз',text:'Из навоза получают биогаз — метан, который раньше уходил в воздух.',source:'Институт энергетики'},
+  fact_les:{title:'Щепа',text:'Древесная щепа — местное топливо из отходов лесхоза.',source:'Белэнерго'},
+  fact_dump:{title:'Сортировка',text:'Из тонны мусора можно получить 200–300 кг вторсырья.',source:'IEA, 2023'},
+  fact_biogas:{title:'Биогаз в Европе',text:'Биогазовые станции работают на 20 000 фермах Европы.',source:'IEA, 2023'},
+  fact_solar:{title:'Солнечные панели',text:'В Беларуси 200+ солнечных дней в году.',source:'Белэнерго'},
+  fact_meter:{title:'Учёт и экономия',text:'Семья со счётчиком тратит на 10–25% меньше электричества.',source:'IEA, 2023'},
+  fact_energy:{title:'Энергоёмкость ВВП',text:'В Беларуси энергоёмкость в 1,5 раза выше, чем в ЕС. Цель — снизить на 30%.',source:'Минэкономики РБ'},
+  fact_winter:{title:'Зимний пик',text:'Зимой потребление растёт на 20–30%.',source:'Белэнерго'},
+  fact_smart_meter:{title:'Умные счётчики',text:'Промышленный счётчик учитывает почасовое потребление.',source:'IEA, 2023'},
+  fact_insulation:{title:'Утепление',text:'Тёплый дом = меньше счёта за газ.',source:'ЖКХ РБ'},
+  fact_saving:{title:'Экономия ≠ отказ',text:'Экономия — это не «выключить свет», а «донести энергию до людей».',source:'IEA, 2023'},
+  fact_trust:{title:'Доверие',text:'Люди — не помеха. Люди — условие.',source:'Социология энергетики'},
+  fact_local:{title:'Локальная генерация',text:'Чем ближе источник к потребителю — тем меньше потерь.',source:'Белэнерго'},
+  fact_directive:{title:'Директива №3',text:'Директива Президента №3 о приоритетах экономии ресурсов с 2007 года.',source:'Указ Президента РБ'},
+  fact_losses:{title:'Потери vs генерация',text:'Стоимость экономии 1 кВт·ч — в 3 раза ниже стоимости его генерации.',source:'IEA, 2023'},
+  fact_credit:{title:'Кредит',text:'Кредит — сдвиг проблемы в будущее.',source:'Минфин РБ'},
+  fact_what_next:{title:'Что дальше?',text:'Энергосбережение — работа каждый день.',source:'Белэнерго'}
+};
+
+const LETTERS = {
+  2:{portrait:'👩‍🏫',text:'«Здравствуйте. В школе отключили горячую воду — экономим. Дети мёрзнут на уроках. Мы понимаем, что это нужно, но можно как-то иначе?»',sign:'Учительница',effect:s=>{if(s.heatForPeople<60){s.heatForPeople=Math.max(0,s.heatForPeople-3)}else{s.heatForPeople=Math.min(100,s.heatForPeople+2)}}},
+  4:{portrait:'👨‍🌾',text:'«У меня на ферме газ уходит в воздух. Говорят, из него можно делать биогаз. Может, попробуем?»',sign:'Фермер',effect:s=>{unlockFact('fact_agro');if(s.heatForPeople>=80)s.heatForPeople=Math.min(100,s.heatForPeople+2)}},
+  5:{portrait:'👵',text:'«Внучок, у нас в подъезде свет горит днём и ночью. Может, счётчик поставить?»',sign:'Пенсионерка',effect:s=>{s.heatForPeople=Math.min(100,s.heatForPeople+(s.flags.metersInstalled>=2?5:2))}},
+  7:{portrait:'👩‍⚕️',text:'«В поликлинике холодно. Но я вижу, что вы чините сети. Держитесь.»',sign:'Врач',effect:s=>{if(s.energyIntensity<90)s.heatForPeople=Math.min(100,s.heatForPeople+5)}},
+  9:{portrait:'🧑',text:'«Я читал про БелАЭС. Почему у нас избыток энергии, а батареи холодные?»',sign:'Подросток',effect:s=>{unlockFact('fact_sub_a')}},
+  11:{portrait:'👩',text:'«У нас во дворе теперь тепло! Спасибо. Я даже стала выключать свет, когда выхожу.»',sign:'Соседка Зинаида',effect:s=>{if(s.heatForPeople>=70)s.heatForPeople=Math.min(100,s.heatForPeople+5);else s.heatForPeople=Math.max(0,s.heatForPeople-3)}},
+  13:{portrait:'🧑‍💼',text:'«Мы готовы поставить умные счётчики. Но это стоит денег. Поможете?»',sign:'Директор завода',effect:s=>{unlockFact('fact_smart_meter')}},
+  15:{portrait:'👵',text:'«Внучок, я поставила счётчик. Теперь вижу, куда уходит. Оказывается, старый холодильник берёт в 2 раза больше нового.»',sign:'Бабушка',effect:s=>{s.heatForPeople=Math.min(100,s.heatForPeople+5);unlockFact('fact_meter')}},
+  17:{portrait:'👩‍🏫',text:'«У нас в школе теперь тепло. Дети стали лучше учиться. Спасибо.»',sign:'Учительница',effect:s=>{if(s.energyIntensity<=75)s.heatForPeople=Math.min(100,s.heatForPeople+8)}},
+  19:{portrait:'👥',text:'«Мы видим, что вы делаете. Спасибо.»',sign:'Жители района',effect:s=>{if(s.heatForPeople>=80)s.heatForPeople=Math.min(100,s.heatForPeople+2)}}
+};
+
+// ============================================================
+// ДИАЛОГИ (с учётом выполненных просьб)
+// ============================================================
+const DIALOGS = {
+  tec:{portrait:'🧑‍🔧',name:'Главный инженер ТЭЦ',text:'Вы знаете, что у нас 55% тепла уходит в воздух? Мне стыдно, но бюджета на ремонт нет. Если найдёте — сделаем.',replies:[{text:'Мы работаем над этим. Крепитесь.',heat:5},{text:'Уже выделили средства. Начинаем.',heat:8}]},
+  boiler1:{portrait:'👨‍🏭',name:'Мастер котельной',text:'Горелки ещё с 80-х. Работают — и ладно, говорят. А я вижу, сколько газа в трубу улетает.',replies:[{text:'Понимаю. Скоро заменим.',heat:5},{text:'Давайте вместе думать, как экономить.',heat:7}]},
+  boiler2:{portrait:'👷',name:'Слесарь',text:'Накипь в трубах — миллиметр за год. Раз в сезон чистить надо бы. Только кто ж даст.',replies:[{text:'Дадим. Приоритет — котельные.',heat:6},{text:'Записал в план на этот год.',heat:4}]},
+  boiler3:{portrait:'🧑‍🔧',name:'Оператор',text:'Автоматики нет. Крутим вентили руками, как в каменном веке.',replies:[{text:'Автоматику поставим — будет проще.',heat:5},{text:'Держитесь, скоро модернизация.',heat:3}]},
+  substation_a:{portrait:'⚡',name:'Электрик',text:'Трансформаторы старые, перегружены. Каждый вечер — как на пороховой бочке.',replies:[{text:'Заменим, как только сможем.',heat:5},{text:'Что нужно в первую очередь?',heat:4}]},
+  substation_b:{portrait:'🔧',name:'Диспетчер',text:'Реактивная мощность гуляет по сетям. Компенсаторы поставим — сразу легче станет.',replies:[{text:'Планируем установку.',heat:6},{text:'Что посоветуете?',heat:4}]},
+  substation_v:{portrait:'🔌',name:'Монтёр',text:'Контакты подгорают. Раз в месяц чистить — и всё. А у нас — раз в год.',replies:[{text:'Увеличим частоту обслуживания.',heat:5},{text:'Это недорого. Сделаем.',heat:4}]},
+  substation_g:{portrait:'⚡',name:'Энергетик',text:'Изоляторы грязные. Утечка. Сами понимаете.',replies:[{text:'Промоем в этом сезоне.',heat:5},{text:'Спасибо, что следите.',heat:3}]},
+  promzone:{portrait:'🧑‍💼',name:'Директор завода',text:'Оборудование на холостом ходу. Выключать — лень. Счётчики поставить — сразу видно, где утечка.',replies:[{text:'Давайте поставим счётчики.',heat:6},{text:'Подумайте о модернизации.',heat:4}]},
+  res1:{portrait:'👩',name:'Мария Петровна',text:'У нас в подъезде опять холодно. Внуки мёрзнут. Когда почините?',replies:[{text:'Работаем. Скоро будет тепло.',heat:6},{text:'Давайте поставим счётчик — увидите, куда уходит.',heat:4}]},
+  res2:{portrait:'👴',name:'Пенсионер Иван',text:'Старые окна. Сквозняки. Утеплять — денег нет. Хоть бы помогли.',replies:[{text:'Программа утепления — в этом году.',heat:6},{text:'Держитесь, всё будет.',heat:3}]},
+  res3:{portrait:'👩‍🦱',name:'Старшая по дому',text:'Двери в подъезде не закрываются. Доводчик копеечный, а всё не дойдёт до нас.',replies:[{text:'Поставим доводчики.',heat:5},{text:'Спасибо, что следите за домом.',heat:3}]},
+  res4:{portrait:'🧑',name:'Житель',text:'Счётчика нет. Никто не знает, сколько жрём. Может, поставить?',replies:[{text:'Обязательно.',heat:4},{text:'Это первый шаг к экономии.',heat:6}]},
+  res5:{portrait:'👵',name:'Бабушка у подъезда',text:'Лампочки горят днём и ночью. Мне не жалко, но зачем?',replies:[{text:'Поставим датчики движения.',heat:5},{text:'Вы правы, будем разбираться.',heat:3}]},
+  school:{portrait:'👩‍🏫',name:'Директор школы',text:'Дети в куртках сидят на уроках. Учиться невозможно. Вы же понимаете, они — наше будущее.',replies:[{text:'Школа — приоритет. Утеплим.',heat:8},{text:'Поставим счётчик, найдём утечки.',heat:6}]},
+  agro:{portrait:'👨‍🌾',name:'Фермер',text:'У меня газ уходит в атмосферу. Говорят, можно биогаз делать. Может, попробуем?',replies:[{text:'Давайте построим станцию.',heat:7},{text:'Хорошая идея. Записал.',heat:4}]},
+  les:{portrait:'🌲',name:'Лесник',text:'Щепа — местное топливо. Дёшево, чисто. Только котельных нет.',replies:[{text:'Построим котельную на щепе.',heat:6},{text:'Буду продвигать идею.',heat:4}]},
+  dump:{portrait:'♻️',name:'Работник свалки',text:'Мусор — это сырьё. А у нас всё в одну кучу. Сортировочный цех бы не помешал.',replies:[{text:'Построим цех. Вы правы.',heat:7},{text:'Давайте продвигать сортировку.',heat:4}]}
+};
+
+const ENDINGS = {
+  resonance:{name:'РЕЗОНАНС',cls:'resonance',text:'Вы нашли свою модель. Люди остались. Сети работают. Долг — ноль.',diary:'Раньше в подъезде было холодно, а счёт — большой. Теперь наоборот.\nВнучок, ты когда приезжал, всё говорил: «поставь счётчик». Я поставила.\nИ знаешь — теперь я понимаю, куда уходит. Раньше просто платила.\nА теперь — слежу. И соседи тоже. У нас в подъезде теперь каждый вечер кто-то выключает свет в подвале. По очереди.'},
+  showcase:{name:'ВИТРИНА',cls:'showcase',text:'Цифры идеальны. Но в домах холодно. На бумаге — победа. В жизни — пустота.',diary:'Счёт пришёл хороший. Только я всё время в пальто дома сижу.\nМожет, оно того не стоило. Внучок старался, но я, видимо, не поняла. Стыдно.'},
+  warmth:{name:'ТЕПЛО ЛЮБОЙ ЦЕНОЙ',cls:'warmth',text:'Люди довольны. Но счёт за энергию растёт. Долг — проблема следующего инженера.',diary:'У нас тепло. Внучок молодец. Только слышала, что счёт за свет опять вырос. Он не говорит. Я не спрашиваю.'},
+  compromise:{name:'ТИХИЙ КОМПРОМИСС',cls:'compromise',text:'Понемногу везде. Без прорыва. Без провала. Так тоже бывает. И это честно.',diary:'Внучок уехал. Стало чуть теплее, чем было. Чуть дешевле, чем было. Он говорит, что так и должно быть.'},
+  fail_catastrophe:{name:'ТЕХНОГЕННАЯ КАТАСТРОФА',cls:'fail-heat',text:'Из-за критического износа сетей и перегрузок произошла серия аварий. Район полностью обесточен и заморожен. Вы отстранены.',diary:'Свет погас. Батареи остыли. Внучок больше не приезжает. Говорят, его уволили. Наверное, мы слишком многого хотели.'},
+  fail_heat:{name:'СОЦИАЛЬНЫЙ ВЗРЫВ',cls:'fail-heat',text:'Люди вышли на улицы. Регион заморозил проекты. Ваша работа остановлена.',diary:'Мы хотели как лучше. Но люди — не цифры.'},
+  fail_budget:{name:'КРЕДИТОРЫ',cls:'fail-budget',text:'Долг региона превысил критический. Кредиторы заморозили все проекты.',diary:'Денег нет. И тепла тоже. Так не должно было быть.'}
+};
+
+// ============================================================
+// СОБЫТИЯ (КРИЗИСЫ)
+// ============================================================
+const EVENTS = [
+  {
+    id: 'frost',
+    title: '⚠️ Аномальные морозы',
+    text: 'Ударили сильные морозы. Сети работают на пределе. Жители жалуются на холод, но резкое увеличение нагрузки может привести к авариям.',
+    options: [
+      {text: 'Срочно увеличить подачу (Потери +5%, Тепло +10)', effect: s => { s.energyIntensity += 5; s.heatForPeople = Math.min(100, s.heatForPeople + 10); } },
+      {text: 'Провести разъяснительную работу (Тепло -5, Бюджет +10)', effect: s => { s.heatForPeople -= 5; s.budget += 10; } }
+    ]
+  },
+  {
+    id: 'accident',
+    title: '⚡ Авария на подстанции',
+    text: 'Из-за износа оборудования произошло короткое замыкание. Требуется срочное вмешательство.',
+    options: [
+      {text: 'Выделить деньги на срочный ремонт (Бюджет -25)', effect: s => { s.budget -= 25; } },
+      {text: 'Сэкономить и отложить (Потери +8%)', effect: s => { s.energyIntensity += 8; } }
+    ]
+  },
+  {
+    id: 'protest',
+    title: '📢 Недовольство жителей',
+    text: 'Люди недовольны тарифами и холодом. Назревает митинг.',
+    options: [
+      {text: 'Пойти на уступки и снизить тарифы (Бюджет -20, Тепло +5)', effect: s => { s.budget -= 20; s.heatForPeople = Math.min(100, s.heatForPeople+5); } },
+      {text: 'Игнорировать (Тепло -15)', effect: s => { s.heatForPeople -= 15; } }
+    ]
+  }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+function cloneObjects(){ return JSON.parse(JSON.stringify(OBJECTS_INITIAL)).map(o=>Object.assign(o,{studied:false,metered:false,talks:0,repaired:0,insulated:false})); }
+function createDefaultState(){
+  return {
+    turn:1,year:1,season:'spring',
+    budget:150,attention:3,
+    heatForPeople:100,energyIntensity:100,
+    flags:{creditsTaken:0,localGenerators:0,metersInstalled:0,neverDidNothing:true,warnedAboutHeat:false,tutorialDone:false,helpSeen:false},
+    objects:cloneObjects(),
+    builds:{biogas:false,wood_chips:false,sorting:false,solar:false,smart_meter:false,insulation:0},
+    pendingEffects:[],
+    unlockedFacts:['fact_kwh', 'fact_sub'],
+    pendingLetter:null,
+    pendingEvent:null,
+    log:[],
+    tutorialStep:0,
+    ui:{activeModal:null,selectedObjectId:null,isAnimating:false,soundOn:true,encyclopediaOpen:false},
+    lastActionTime:0
+  };
+}
+let state = createDefaultState();
+const $ = s=>document.querySelector(s);
+const clamp = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const sleep = ms=>new Promise(r=>setTimeout(r,ms));
+
+function saveGame(){ try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch(e){} }
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw)return null;
+    const parsed = JSON.parse(raw);
+    const defaults = createDefaultState();
+    const merged = Object.assign(defaults,parsed);
+    merged.flags = Object.assign(defaults.flags,parsed.flags||{});
+    merged.ui = Object.assign(defaults.ui,parsed.ui||{});
+    merged.builds = Object.assign(defaults.builds,parsed.builds||{});
+    if(!Array.isArray(merged.objects)||merged.objects.length===0)merged.objects=cloneObjects();
+    if(!Array.isArray(merged.unlockedFacts))merged.unlockedFacts=['fact_kwh', 'fact_sub'];
+    if(!Array.isArray(merged.pendingEffects))merged.pendingEffects=[];
+    return merged;
+  }catch(e){return null}
+}
+function resetGame(){ try{localStorage.removeItem(SAVE_KEY)}catch(e){} state=createDefaultState(); }
+function unlockFact(id){ if(state.unlockedFacts.indexOf(id)<0)state.unlockedFacts.push(id); }
+
+function recalcEnergyIntensity(){
+  const current = state.objects.reduce((s,o)=>s+o.loss,0);
+  let base = 100 - (BASELINE_LOSS - current) / 3;
+  let bonus = 0;
+  if(state.builds.biogas)bonus+=6;
+  if(state.builds.wood_chips)bonus+=7;
+  if(state.builds.sorting)bonus+=5;
+  if(state.builds.solar)bonus+=8;
+  if(state.builds.smart_meter)bonus+=4;
+  bonus += state.builds.insulation * 3;
+  state.energyIntensity = clamp(base - bonus, 40, 100);
+}
+
+// ============================================================
+// ЗВУК
+// ============================================================
+let audioCtx = null;
+function getAudio(){ if(!audioCtx){ try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return null} } return audioCtx; }
+function playSound(type){
+  if(!state.ui.soundOn)return;
+  const ctx = getAudio(); if(!ctx)return;
+  try{
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    const t = ctx.currentTime;
+    switch(type){
+      case 'click': osc.type='sine'; osc.frequency.setValueAtTime(440,t); gain.gain.setValueAtTime(.08,t); gain.gain.exponentialRampToValueAtTime(.001,t+.05); osc.start(t); osc.stop(t+.05); break;
+      case 'repair': osc.type='sine'; osc.frequency.setValueAtTime(660,t); osc.frequency.linearRampToValueAtTime(880,t+.2); gain.gain.setValueAtTime(.1,t); gain.gain.exponentialRampToValueAtTime(.001,t+.2); osc.start(t); osc.stop(t+.2); break;
+      case 'error': osc.type='square'; osc.frequency.setValueAtTime(220,t); gain.gain.setValueAtTime(.08,t); gain.gain.exponentialRampToValueAtTime(.001,t+.15); osc.start(t); osc.stop(t+.15); break;
+      case 'leak': osc.type='triangle'; osc.frequency.setValueAtTime(880,t); gain.gain.setValueAtTime(.1,t); gain.gain.exponentialRampToValueAtTime(.001,t+.1); osc.start(t); osc.stop(t+.1); break;
+      case 'letter': osc.type='sine'; osc.frequency.setValueAtTime(523,t); gain.gain.setValueAtTime(.08,t); osc.frequency.setValueAtTime(659,t+.15); gain.gain.setValueAtTime(.08,t+.15); gain.gain.exponentialRampToValueAtTime(.001,t+.35); osc.start(t); osc.stop(t+.35); break;
+      case 'turn': osc.type='sine'; osc.frequency.setValueAtTime(330,t); osc.frequency.linearRampToValueAtTime(440,t+.3); gain.gain.setValueAtTime(.08,t); gain.gain.exponentialRampToValueAtTime(.001,t+.3); osc.start(t); osc.stop(t+.3); break;
+      case 'good': osc.type='sine'; osc.frequency.setValueAtTime(523,t); gain.gain.setValueAtTime(.08,t); gain.gain.exponentialRampToValueAtTime(.001,t+1.5); osc.start(t); osc.stop(t+1.5); break;
+      case 'bad': osc.type='sine'; osc.frequency.setValueAtTime(220,t); gain.gain.setValueAtTime(.08,t); gain.gain.exponentialRampToValueAtTime(.001,t+1.5); osc.start(t); osc.stop(t+1.5); break;
+    }
+  }catch(e){}
+}
+
+// ============================================================
+// THREE.JS
+// ============================================================
+let scene, camera, renderer, raycaster, clock;
+const mouse = new THREE.Vector2();
+const cityObjects = {};
+const selectionRing = {mesh:null, objId:null};
+const activeAnimations = [];
+const people = [];
+const cars = [];
+
+const cam = {
+  currentPos: new THREE.Vector3(18,20,18),
+  targetPos: new THREE.Vector3(18,20,18),
+  currentLook: new THREE.Vector3(0,1,0),
+  targetLook: new THREE.Vector3(0,1,0),
+  mode: 'overview',
+  overviewAngle: 0
+};
+
+const SEASON_COLORS = {
+  spring: {sky:0x4a5d7a, sun:0xffe0b0, ground:0x4a5c3a, fog:0x4a5d7a},
+  summer: {sky:0x2d4a6b, sun:0xfff0c0, ground:0x4a6c3a, fog:0x2d4a6b},
+  autumn: {sky:0x4a3a2a, sun:0xffc080, ground:0x6c4a2a, fog:0x4a3a2a},
+  winter: {sky:0x3a4a5a, sun:0xc0d0e0, ground:0xd0dce8, fog:0x3a4a5a}
+};
+
+function initThree(){
+  clock = new THREE.Clock();
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(SEASON_COLORS.spring.sky);
+  scene.fog = new THREE.Fog(SEASON_COLORS.spring.fog, 32, 85);
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 200);
+  camera.position.copy(cam.currentPos);
+  camera.lookAt(cam.currentLook);
+
+  renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  const hemi = new THREE.HemisphereLight(0x8899aa, 0x334455, 0.75);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight(0xffe0b0, 1.2);
+  sun.position.set(20, 35, 15);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -35;
+  sun.shadow.camera.right = 35;
+  sun.shadow.camera.top = 35;
+  sun.shadow.camera.bottom = -35;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 80;
+  scene.add(sun);
+  scene.userData.sun = sun;
+  scene.userData.hemi = hemi;
+
+  // Земля
+  const groundGeo = new THREE.PlaneGeometry(120, 120);
+  const groundMat = new THREE.MeshStandardMaterial({color:SEASON_COLORS.spring.ground, roughness:0.9});
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = 0;
+  ground.receiveShadow = true;
+  ground.name = 'ground';
+  scene.add(ground);
+
+  raycaster = new THREE.Raycaster();
+
+  // Кольцо выбора
+  const ringGeo = new THREE.RingGeometry(1.6, 2.2, 40);
+  const ringMat = new THREE.MeshBasicMaterial({color:0xffd966, side:THREE.DoubleSide, transparent:true, opacity:0.85, depthWrite:false});
+  selectionRing.mesh = new THREE.Mesh(ringGeo, ringMat);
+  selectionRing.mesh.rotation.x = -Math.PI/2;
+  selectionRing.mesh.position.y = 0.05;
+  selectionRing.mesh.visible = false;
+  scene.add(selectionRing.mesh);
+
+  // СТРОИМ ГОРОД
+  buildRoads();
+  buildVegetation();
+  buildDistantScenery();
+  buildStreetLamps();
+  buildCity();
+  spawnPeople();
+  spawnCars();
+
+  window.addEventListener('resize', onResize);
+  renderer.domElement.addEventListener('click', onCanvasClick);
+}
+
+function onResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+const mats = {};
+function getMat(key, color, opts){
+  const k = key+'_'+color;
+  if(!mats[k]) mats[k] = new THREE.MeshStandardMaterial(Object.assign({color, roughness:0.75, metalness:0.15}, opts||{}));
+  return mats[k];
+}
+
+// ============================================================
+// ДОРОГИ И КВАРТАЛЫ
+// ============================================================
+const hRoads = [-8, -2, 4, 10];
+const vRoads = [-12, -6, 0, 6, 12];
+
+function buildRoads(){
+  const roadMat = new THREE.MeshStandardMaterial({color:0x222228, roughness:0.95});
+  const sidewalkMat = new THREE.MeshStandardMaterial({color:0x5a5a60, roughness:0.9});
+  const grassMat = new THREE.MeshStandardMaterial({color:0x3a5a3a, roughness:1.0});
+  const lineMat = new THREE.MeshBasicMaterial({color:0xe8d878, transparent:true, opacity:0.6});
+
+  // Дороги
+  hRoads.forEach(z=>{
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(36, 1.6), roadMat);
+    road.rotation.x = -Math.PI/2;
+    road.position.set(0, 0.02, z);
+    road.receiveShadow = true;
+    scene.add(road);
+    
+    [-0.85, 0.85].forEach(off=>{
+      const s = new THREE.Mesh(new THREE.BoxGeometry(36, 0.08, 0.15), sidewalkMat);
+      s.position.set(0, 0.04, z + off);
+      s.receiveShadow = true;
+      scene.add(s);
+    });
+    
+    for(let x=-18; x<=18; x+=1.5){
+      if (vRoads.some(vx => Math.abs(x - vx) < 1.5)) continue;
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.08), lineMat);
+      dash.rotation.x = -Math.PI/2;
+      dash.position.set(x, 0.03, z);
+      scene.add(dash);
+    }
+  });
+
+  vRoads.forEach(x=>{
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 24), roadMat);
+    road.rotation.x = -Math.PI/2;
+    road.position.set(x, 0.02, 1);
+    road.receiveShadow = true;
+    scene.add(road);
+    
+    [-0.85, 0.85].forEach(off=>{
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.08, 24), sidewalkMat);
+      s.position.set(x + off, 0.04, 1);
+      s.receiveShadow = true;
+      scene.add(s);
+    });
+    
+    for(let z=-12; z<=14; z+=1.5){
+      if (hRoads.some(hz => Math.abs(z - hz) < 1.5)) continue;
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.6), lineMat);
+      dash.rotation.x = -Math.PI/2;
+      dash.position.set(x, 0.03, z);
+      scene.add(dash);
+    }
+  });
+
+  // Перекрёстки (Зебры)
+  function drawCrosswalk(cx, cz, isH) {
+      for(let i = -0.6; i <= 0.6; i += 0.3) {
+          const line = new THREE.Mesh(new THREE.PlaneGeometry(isH ? 0.15 : 0.8, isH ? 0.8 : 0.15), lineMat);
+          line.rotation.x = -Math.PI/2;
+          line.position.set(cx + (isH ? i : 0), 0.035, cz + (isH ? 0 : i));
+          scene.add(line);
+      }
+  }
+  hRoads.forEach(z => {
+      vRoads.forEach(x => {
+          drawCrosswalk(x, z - 1.25, false);
+          drawCrosswalk(x, z + 1.25, false);
+          drawCrosswalk(x - 1.25, z, true);
+          drawCrosswalk(x + 1.25, z, true);
+      });
+  });
+
+  // Кварталы (блоки)
+  const blockX = [-9, -3, 3, 9];
+  const blockZ = [-5, 1, 7, 13];
+  
+  blockX.forEach(x => {
+      blockZ.forEach(z => {
+          // Бетонная плита
+          const base = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), sidewalkMat);
+          base.position.set(x, 0.05, z);
+          base.receiveShadow = true;
+          scene.add(base);
+          // Трава внутри
+          const grass = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.11, 5.6), grassMat);
+          grass.position.set(x, 0.055, z);
+          grass.receiveShadow = true;
+          scene.add(grass);
+      });
+  });
+}
+
+// ============================================================
+// РАСТИТЕЛЬНОСТЬ И ФОН
+// ============================================================
+function makeTree(x, z, scale){
+  scale = scale || 1;
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12*scale, 0.15*scale, 0.8*scale, 6), getMat('tree_trunk2', 0x5a4030));
+  trunk.position.y = 0.4*scale;
+  trunk.castShadow = true;
+  g.add(trunk);
+  const crown1 = new THREE.Mesh(new THREE.ConeGeometry(0.7*scale, 1.3*scale, 7), getMat('tree_crown2', 0x3a6a3a));
+  crown1.position.y = 1.3*scale;
+  crown1.castShadow = true;
+  g.add(crown1);
+  const crown2 = new THREE.Mesh(new THREE.ConeGeometry(0.5*scale, 1*scale, 7), getMat('tree_crown3', 0x4a7a4a));
+  crown2.position.y = 1.9*scale;
+  crown2.castShadow = true;
+  g.add(crown2);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function buildVegetation(){
+  // Деревья по краям и в пустых кварталах
+  const spots = [];
+  
+  // Периметр
+  for(let x=-20; x<=20; x+=2){
+    spots.push({x, z:-15 + Math.random()*1.5});
+    spots.push({x, z:18 + Math.random()*1.5});
+  }
+  for(let z=-14; z<=17; z+=2){
+    spots.push({x:-20 + Math.random()*1.5, z});
+    spots.push({x:19 + Math.random()*1.5, z});
+  }
+  
+  // Пустой квартал (9, 13)
+  for(let i=0; i<5; i++) {
+      spots.push({x: 9 + (Math.random()-0.5)*3, z: 13 + (Math.random()-0.5)*3});
+  }
+
+  spots.forEach(s=>{
+    if(Math.random() < 0.9){
+      const tree = makeTree(s.x, s.z, 0.85 + Math.random()*0.4);
+      scene.add(tree);
+    }
+  });
+}
+
+function buildDistantScenery() {
+    // Горы на фоне
+    const mountainMat = new THREE.MeshStandardMaterial({color: 0x2a3a4a, roughness: 0.9});
+    for(let i=0; i<40; i++) {
+        const angle = (i / 40) * Math.PI * 2;
+        const dist = 45 + Math.random() * 15;
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+        const h = 10 + Math.random() * 15;
+        const m = new THREE.Mesh(new THREE.ConeGeometry(8 + Math.random()*5, h, 5), mountainMat);
+        m.position.set(x, h/2, z);
+        m.rotation.y = Math.random() * Math.PI;
+        scene.add(m);
+    }
+}
+
+function buildStreetLamps(){
+  const positions = [];
+  hRoads.forEach(z=>{
+    for(let x=-15; x<=15; x+=7){
+      positions.push([x, z - 1.2]);
+    }
+  });
+  positions.forEach(([x, z])=>{
+    const g = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.2, 6), getMat('lamp_pole', 0x3a3a3a, {metalness:0.7}));
+    pole.position.y = 1.1;
+    g.add(pole);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({color:0xffe080}));
+    head.position.y = 2.25;
+    g.add(head);
+    const light = new THREE.PointLight(0xffd966, 0.4, 4);
+    light.position.y = 2.25;
+    g.add(light);
+    g.position.set(x, 0, z);
+    scene.add(g);
+  });
+}
+
+// ============================================================
+// МОДЕЛИ ЗДАНИЙ
+// ============================================================
+function makeLabelSprite(name, icon){
+  const canvas = document.createElement('canvas');
+  canvas.width = 320; canvas.height = 96;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(26,35,50,0.92)';
+  roundRect(ctx, 4, 4, 312, 88, 12); ctx.fill();
+  ctx.strokeStyle = '#b87333'; ctx.lineWidth = 3;
+  roundRect(ctx, 4, 4, 312, 88, 12); ctx.stroke();
+  ctx.fillStyle = '#e8dcc4';
+  ctx.font = 'bold 26px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(icon + ' ' + name, 160, 48);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true});
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(4.2, 1.26, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function buildTEC(){
+  const g = new THREE.Group();
+  const main = new THREE.Mesh(new THREE.BoxGeometry(4.5, 3.2, 3.8), getMat('tec_main2', 0x5a6373));
+  main.position.y = 1.6; main.castShadow = true; main.receiveShadow = true; g.add(main);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.3, 4), getMat('tec_roof2', 0x3a4253));
+  roof.position.y = 3.25; g.add(roof);
+  for(let i=0;i<2;i++){
+    const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 5, 12), getMat('tec_chim2', 0x8a7a6a));
+    chim.position.set(-1.2 + i*2.4, 3.25 + 2.5, -1); chim.castShadow = true; g.add(chim);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.25,12), getMat('tec_band2', 0xd45454));
+    band.position.set(-1.2 + i*2.4, 3.25 + 4, -1); g.add(band);
+  }
+  for(let i=0;i<4;i++){
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({color:0xffd966}));
+    win.position.set(-1.5 + i*1.0, 2.2, 1.91); win.userData.isWindow = true; g.add(win);
+  }
+  return g;
+}
+
+function buildBoiler(scale){
+  const g = new THREE.Group();
+  const main = new THREE.Mesh(new THREE.BoxGeometry(2.5*scale, 2.2*scale, 2.2*scale), getMat('boiler_main2', 0x6a5a4a));
+  main.position.y = 1.1*scale; main.castShadow = true; main.receiveShadow = true; g.add(main);
+  const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 3.5*scale, 10), getMat('boiler_chim2', 0x8a7a6a));
+  chimney.position.set(0.7*scale, 2.2*scale + 1.75*scale, 0); chimney.castShadow = true; g.add(chimney);
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({color:0xffb040}));
+  win.position.set(-0.5, 1.3, 1.11*scale); win.userData.isWindow = true; g.add(win);
+  return g;
+}
+
+function buildSubstation(){
+  const g = new THREE.Group();
+  const box = new THREE.Mesh(new THREE.BoxGeometry(2, 1.4, 1.6), getMat('sub_box2', 0x4a5560));
+  box.position.y = 0.7; box.castShadow = true; box.receiveShadow = true; g.add(box);
+  const pylonMat = getMat('sub_pylon2', 0x9aa5b1, {metalness:0.7, roughness:0.4});
+  for(let i=0;i<3;i++){
+    const pylon = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 2.5, 6), pylonMat);
+    pylon.position.set(-0.7 + i*0.7, 1.25, -0.6); pylon.castShadow = true; g.add(pylon);
+    const cross = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.06), pylonMat);
+    cross.position.set(-0.7 + i*0.7, 2.3, -0.6); g.add(cross);
+  }
+  for(let i=0;i<2;i++){
+    const iso = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), new THREE.MeshBasicMaterial({color:0x5c8b9e}));
+    iso.position.set(-0.5 + i*1.0, 2.15, -0.6); g.add(iso);
+  }
+  return g;
+}
+
+function buildResidential(){
+  const g = new THREE.Group();
+  for(let i=0;i<3;i++){
+    const h = 2.5 + Math.random()*1.2;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(1.1, h, 1.6), getMat('res_wall2', 0xb8a888));
+    b.position.set(-1.2 + i*1.2, h/2, 0); b.castShadow = true; b.receiveShadow = true; g.add(b);
+    const cols = 2, rows = Math.floor(h/0.7);
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const w = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.28), new THREE.MeshBasicMaterial({color:0x3a3a3a}));
+        w.position.set(-1.2 + i*1.2 - 0.25 + c*0.5, 0.5 + r*0.65, 0.81);
+        w.userData.isWindow = true; g.add(w);
+      }
+    }
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 1.7), getMat('res_roof2', 0x6a4a3a));
+    roof.position.set(-1.2 + i*1.2, h + 0.075, 0); g.add(roof);
+  }
+  return g;
+}
+
+function buildSchool(){
+  const g = new THREE.Group();
+  const main = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.6, 2.4), getMat('school_wall', 0xd4a870));
+  main.position.y = 1.3; main.castShadow = true; main.receiveShadow = true; g.add(main);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.22, 2.6), getMat('school_roof', 0x8a4030));
+  roof.position.y = 2.7; g.add(roof);
+  for(let i=0;i<3;i++){
+    for(let j=0;j<2;j++){
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.55), new THREE.MeshBasicMaterial({color:0xffd966}));
+      win.position.set(-1.1 + i*1.1, 0.9 + j*0.9, 1.21);
+      win.userData.isWindow = true; g.add(win);
+    }
+  }
+  const door = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.9), new THREE.MeshBasicMaterial({color:0x5a3020}));
+  door.position.set(0, 0.45, 1.21); g.add(door);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 3.2, 6), getMat('school_pole', 0x888888, {metalness:0.7}));
+  pole.position.set(1.8, 1.6, 0.8); g.add(pole);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), new THREE.MeshBasicMaterial({color:0xd45454, side:THREE.DoubleSide}));
+  flag.position.set(2.15, 2.9, 0.8); g.add(flag);
+  const field = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.8), new THREE.MeshStandardMaterial({color:0x4a7a4a, roughness:0.95}));
+  field.rotation.x = -Math.PI/2; field.position.set(-3.0, 0.06, 0.5); g.add(field);
+  const lineMat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.5});
+  for(let i=0;i<2;i++){
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.05), lineMat);
+    line.rotation.x = -Math.PI/2; line.position.set(-3.0, 0.07, 0.5 + (i-0.5)*0.9); g.add(line);
+  }
+  return g;
+}
+
+function buildIndustrial(){
+  const g = new THREE.Group();
+  for(let i=0;i<2;i++){
+    const h = 1.8 + i*0.3;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(2.2, h, 2.2), getMat('ind_wall2', 0x707880));
+    b.position.set(-1.2 + i*2.4, h/2, 0); b.castShadow = true; b.receiveShadow = true; g.add(b);
+    const r = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.15, 2.3), getMat('ind_roof2', 0x4a5258));
+    r.position.set(-1.2 + i*2.4, h + 0.075, 0); g.add(r);
+  }
+  const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 4, 10), getMat('ind_chim2', 0x8a7a6a));
+  chim.position.set(0, 2, -0.8); chim.castShadow = true; g.add(chim);
+  return g;
+}
+
+function buildFarm(){
+  const g = new THREE.Group();
+  const barn = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 1.8), getMat('farm_wall2', 0xa04030));
+  barn.position.y = 0.9; barn.castShadow = true; barn.receiveShadow = true; g.add(barn);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.8, 1.2, 4), getMat('farm_roof2', 0x5a3020));
+  roof.rotation.y = Math.PI/4; roof.position.y = 2.3; g.add(roof);
+  const silo = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 2.2, 12), getMat('farm_silo2', 0xc0b8a0));
+  silo.position.set(1.8, 1.1, 0.2); silo.castShadow = true; g.add(silo);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.6, 12), getMat('farm_cone2', 0x8a7a5a));
+  cone.position.set(1.8, 2.5, 0.2); g.add(cone);
+  return g;
+}
+
+function buildForest(){
+  const g = new THREE.Group();
+  const positions = [[-0.8,0,-0.8],[0.5,0,-0.5],[1.2,0,0.3],[-0.5,0,0.7],[0.8,0,0.8],[-1.2,0,0.2]];
+  positions.forEach(([x,y,z])=>{
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.8, 6), getMat('tree_trunk3', 0x5a4030));
+    trunk.position.set(x, 0.4, z); trunk.castShadow = true; g.add(trunk);
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 6), getMat('tree_crown4', 0x3a6a3a));
+    crown.position.set(x, 1.3, z); crown.castShadow = true; g.add(crown);
+  });
+  return g;
+}
+
+function buildDump(){
+  const g = new THREE.Group();
+  for(let i=0;i<3;i++){
+    const pile = new THREE.Mesh(new THREE.ConeGeometry(0.8 + Math.random()*0.3, 0.9 + Math.random()*0.4, 6), getMat('dump_pile2', 0x6a5a3a));
+    pile.position.set(-1 + i*1, 0.5, (Math.random()-0.5)*0.6); pile.castShadow = true; g.add(pile);
+  }
+  for(let i=0;i<8;i++){
+    const color = [0x8a7a3a, 0xa08050, 0x806040][i%3];
+    const trash = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.15,0.15), getMat('trash'+i, color));
+    trash.position.set((Math.random()-0.5)*2.2, 0.1, (Math.random()-0.5)*1.4);
+    trash.rotation.set(Math.random(),Math.random(),Math.random()); g.add(trash);
+  }
+  return g;
+}
+
+// ============================================================
+// ДЫМ
+// ============================================================
+class SmokeEmitter {
+  constructor(scene, position, isDark){
+    this.scene = scene;
+    this.position = position.clone();
+    this.isDark = isDark;
+    this.rate = 0;
+    this.particles = [];
+    for(let i=0;i<12;i++){
+      const mat = new THREE.MeshBasicMaterial({color: isDark ? 0x444444 : 0xc0c8d0, transparent:true, opacity:0, depthWrite:false});
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.25, 6, 6), mat);
+      p.position.copy(position); p.visible = false;
+      this.scene.add(p);
+      this.particles.push({mesh:p, life:0, maxLife:1, vy:0.6+Math.random()*0.4});
+    }
+  }
+  setRate(r){ this.rate = clamp(r, 0, 1); }
+  update(dt){
+    this.particles.forEach(p=>{
+      if(p.life<=0){
+        if(Math.random() < this.rate * dt * 3){
+          p.life = p.maxLife = 1.2 + Math.random()*1.2;
+          p.mesh.position.copy(this.position);
+          p.mesh.position.x += (Math.random()-0.5)*0.4;
+          p.mesh.position.z += (Math.random()-0.5)*0.4;
+          p.mesh.scale.setScalar(0.5);
+          p.mesh.visible = true;
+          p.mesh.material.opacity = 0.6;
+        }
+      } else {
+        p.life -= dt;
+        p.mesh.position.y += p.vy * dt;
+        p.mesh.position.x += (Math.random()-0.5) * dt * 0.3;
+        const t = 1 - p.life/p.maxLife;
+        p.mesh.material.opacity = 0.6 * (1 - t);
+        p.mesh.scale.setScalar(0.5 + t * 1.8);
+        if(p.life<=0) p.mesh.visible = false;
+      }
+    });
+  }
+}
+
+// ============================================================
+// СБОРКА ГОРОДА
+// ============================================================
+function buildCity(){
+  state.objects.forEach(obj=>{
+    let group;
+    switch(obj.id){
+      case 'tec': group = buildTEC(); break;
+      case 'boiler1': case 'boiler2': group = buildBoiler(1); break;
+      case 'boiler3': group = buildBoiler(0.9); break;
+      case 'substation_a': case 'substation_b': case 'substation_v': case 'substation_g': group = buildSubstation(); break;
+      case 'promzone': group = buildIndustrial(); break;
+      case 'res1': case 'res2': case 'res3': case 'res4': case 'res5': group = buildResidential(); break;
+      case 'school': group = buildSchool(); break;
+      case 'agro': group = buildFarm(); break;
+      case 'les': group = buildForest(); break;
+      case 'dump': group = buildDump(); break;
+      default: group = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), getMat('default', 0x8a8a8a));
+    }
+    group.position.set(obj.pos[0], 0, obj.pos[2]);
+
+    const label = makeLabelSprite(obj.name, obj.icon);
+    label.position.set(0, 6.5, 0);
+    group.add(label);
+
+    let smoke = null;
+    if(obj.type === 'source'){
+      const chimneyY = obj.id==='tec' ? 8 : 5;
+      const chimneyX = obj.id==='tec' ? -1.2 : 0.7;
+      const pos = new THREE.Vector3(obj.pos[0]+chimneyX, chimneyY, obj.pos[2]-1);
+      smoke = new SmokeEmitter(scene, pos, true);
+    }
+
+    group.userData.objectId = obj.id;
+    group.userData.obj = obj;
+    scene.add(group);
+
+    cityObjects[obj.id] = {group, label, smoke, obj};
+
+    group.scale.set(0.01, 0.01, 0.01);
+    activeAnimations.push({obj: group, start: performance.now(), duration: 700, target: new THREE.Vector3(1,1,1)});
+  });
+
+  updateCityVisuals();
+}
+
+function updateCityVisuals(){
+  state.objects.forEach(obj=>{
+    const co = cityObjects[obj.id];
+    if(!co) return;
+
+    if(co.smoke){
+      const lossRatio = obj.loss / 60;
+      co.smoke.setRate(obj.studied || state.flags.tutorialDone ? lossRatio : lossRatio * 0.5);
+      co.smoke.particles.forEach(p=>{
+        p.mesh.material.color.setHex(obj.loss > 20 ? 0x333333 : obj.loss > 5 ? 0x777777 : 0xc0c8d0);
+      });
+    }
+
+    if(obj.type === 'consumer'){
+      co.group.traverse(child=>{
+        if(child.userData.isWindow){
+          if(obj.loss > 15) child.material.color.setHex(0x3a3a4a);
+          else if(obj.loss > 5) child.material.color.setHex(0xd0a040);
+          else child.material.color.setHex(0xffe080);
+        }
+      });
+    }
+  });
+
+  const cols = SEASON_COLORS[state.season];
+  if(scene.userData.sun){
+    scene.userData.sun.color.setHex(cols.sun);
+    scene.userData.hemi.color.setHex(cols.sky);
+    scene.background.setHex(cols.sky);
+    scene.fog.color.setHex(cols.fog);
+  }
+  const groundMesh = scene.getObjectByName('ground');
+  if(groundMesh) groundMesh.material.color.setHex(cols.ground);
+}
+
+// ============================================================
+// ЛЮДИ И МАШИНЫ
+// ============================================================
+class Person {
+  constructor(){
+    const g = new THREE.Group();
+    const colors = [0x4060a0, 0xa04040, 0x40a060, 0x8060a0, 0xa08040, 0x506080];
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.45, 6), new THREE.MeshStandardMaterial({color}));
+    body.position.y = 0.225; body.castShadow = true; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshStandardMaterial({color:0xf0c080}));
+    head.position.y = 0.54; head.castShadow = true; g.add(head);
+    
+    // Спавн на тротуарах
+    const axis = Math.random() < 0.5 ? 'x' : 'z';
+    this.axis = axis;
+    if(axis === 'x') {
+        this.fixed = hRoads[Math.floor(Math.random()*hRoads.length)] + 0.85;
+        this.pos = (Math.random()-0.5) * 28;
+    } else {
+        this.fixed = vRoads[Math.floor(Math.random()*vRoads.length)] + 0.85;
+        this.pos = -8 + Math.random()*20;
+    }
+    g.position.set(axis==='x'?this.pos:this.fixed, 0, axis==='z'?this.pos:this.fixed);
+    scene.add(g);
+    this.mesh = g;
+    this.dir = Math.random() < 0.5 ? 1 : -1;
+    this.speed = 0.5 + Math.random() * 0.5;
+    this.bobPhase = Math.random() * Math.PI * 2;
+  }
+  update(dt){
+    this.pos += this.dir * this.speed * dt;
+    if(this.axis === 'x'){
+      if(this.pos > 16 || this.pos < -16) this.dir *= -1;
+      this.mesh.position.x = this.pos;
+      this.mesh.rotation.y = this.dir > 0 ? Math.PI/2 : -Math.PI/2;
+    } else {
+      if(this.pos > 14 || this.pos < -10) this.dir *= -1;
+      this.mesh.position.z = this.pos;
+      this.mesh.rotation.y = this.dir > 0 ? 0 : Math.PI;
+    }
+    this.mesh.position.y = Math.abs(Math.sin(performance.now()*0.008 + this.bobPhase)) * 0.04;
+  }
+}
+function spawnPeople(){
+  for(let i=0;i<20;i++) people.push(new Person());
+}
+
+class Car {
+  constructor(){
+    const g = new THREE.Group();
+    const colors = [0xd45454, 0x5c8b9e, 0xffd966, 0x6ba368, 0xe8a33d, 0x8060a0];
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.25, 0.4), new THREE.MeshStandardMaterial({color, roughness:0.4, metalness:0.3}));
+    body.position.y = 0.2; body.castShadow = true; g.add(body);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.35), new THREE.MeshStandardMaterial({color:0x222222}));
+    cabin.position.y = 0.37; g.add(cabin);
+    const wheelMat = new THREE.MeshStandardMaterial({color:0x111111});
+    for(let i=0;i<4;i++){
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 8), wheelMat);
+      wheel.rotation.z = Math.PI/2;
+      wheel.position.set(-0.22 + (i%2)*0.44, 0.08, -0.2 + Math.floor(i/2)*0.4);
+      g.add(wheel);
+    }
+    const isX = Math.random() < 0.5;
+    this.axis = isX ? 'x' : 'z';
+    if(isX){
+      const roadZ = hRoads[Math.floor(Math.random()*hRoads.length)];
+      this.fixed = roadZ;
+      this.pos = (Math.random()-0.5) * 28;
+      g.position.set(this.pos, 0, roadZ);
+      this.dir = Math.random() < 0.5 ? 1 : -1;
+      g.rotation.y = this.dir > 0 ? 0 : Math.PI;
+    } else {
+      const roadX = vRoads[Math.floor(Math.random()*vRoads.length)];
+      this.fixed = roadX;
+      this.pos = -8 + Math.random()*20;
+      g.position.set(roadX, 0, this.pos);
+      this.dir = Math.random() < 0.5 ? 1 : -1;
+      g.rotation.y = this.dir > 0 ? -Math.PI/2 : Math.PI/2;
+    }
+    this.speed = 2 + Math.random()*2;
+    scene.add(g);
+    this.mesh = g;
+  }
+  update(dt){
+    this.pos += this.dir * this.speed * dt;
+    if(this.axis === 'x'){
+      if(this.pos > 16) this.pos = -16;
+      if(this.pos < -16) this.pos = 16;
+      this.mesh.position.x = this.pos;
+    } else {
+      if(this.pos > 14) this.pos = -10;
+      if(this.pos < -10) this.pos = 14;
+      this.mesh.position.z = this.pos;
+    }
+  }
+}
+function spawnCars(){
+  for(let i=0;i<10;i++) cars.push(new Car());
+}
+
+// ============================================================
+// КАМЕРА
+// ============================================================
+function focusOnObject(id){
+  const co = cityObjects[id];
+  if(!co) return;
+  const p = co.group.position;
+  cam.targetPos.set(p.x + 6, 5.5, p.z + 6);
+  cam.targetLook.set(p.x, 2, p.z);
+  cam.mode = 'focus';
+  selectionRing.mesh.position.set(p.x, 0.05, p.z);
+  selectionRing.mesh.visible = true;
+  selectionRing.objId = id;
+}
+
+function returnToOverview(){
+  cam.targetPos.set(18, 20, 18);
+  cam.targetLook.set(0, 1, 0);
+  cam.mode = 'overview';
+  selectionRing.mesh.visible = false;
+  selectionRing.objId = null;
+  state.ui.selectedObjectId = null;
+}
+
+async function cinematicAction(id, actionFn){
+  const co = cityObjects[id];
+  if(!co) return;
+  const p = co.group.position;
+  cam.targetPos.set(p.x + 3.5, 3.5, p.z + 3.5);
+  cam.targetLook.set(p.x, 2, p.z);
+  await sleep(500);
+  actionFn();
+  spawnBurst(p.x, 3, p.z);
+  await sleep(700);
+  cam.targetPos.set(p.x + 6, 5.5, p.z + 6);
+  cam.targetLook.set(p.x, 2, p.z);
+}
+
+function spawnBurst(x, y, z){
+  for(let i=0;i<25;i++){
+    const mat = new THREE.MeshBasicMaterial({color:0xffd966, transparent:true, opacity:1});
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 4, 4), mat);
+    m.position.set(x, y, z);
+    const vel = new THREE.Vector3((Math.random()-0.5)*6, Math.random()*5 + 2, (Math.random()-0.5)*6);
+    scene.add(m);
+    const start = performance.now();
+    const anim = ()=>{
+      const t = (performance.now()-start)/1000;
+      if(t>1.2){ scene.remove(m); return; }
+      m.position.x += vel.x * 0.016;
+      m.position.y += vel.y * 0.016 - 6*t*0.016;
+      m.position.z += vel.z * 0.016;
+      m.material.opacity = 1 - t/1.2;
+      requestAnimationFrame(anim);
+    };
+    anim();
+  }
+}
+
+// ============================================================
+// КЛИКИ
+// ============================================================
+function onCanvasClick(e){
+  if(state.ui.isAnimating) return;
+  if(state.ui.activeModal) return;
+  if(!$('#startScreen').classList.contains('hidden')) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  const clickables = [];
+  Object.values(cityObjects).forEach(co=>{
+    co.group.traverse(child=>{ if(child.isMesh) clickables.push(child); });
+  });
+
+  const hits = raycaster.intersectObjects(clickables, false);
+  if(hits.length > 0){
+    let obj = hits[0].object;
+    while(obj && !obj.userData.objectId) obj = obj.parent;
+    if(obj && obj.userData.objectId){
+      onObjectClick(obj.userData.objectId);
+      return;
+    }
+  }
+  if(cam.mode !== 'overview') returnToOverview();
+}
+
+function onObjectClick(id){
+  const co = cityObjects[id];
+  if(!co) return;
+
+  if(!state.flags.tutorialDone){
+    const step = state.tutorialStep;
+    const target = getHighlightTarget();
+    if(target && id !== target) return;
+    if(!target) return;
+    if(step===2 && id==='tec'){ state.tutorialStep = 3; focusOnObject(id); state.ui.selectedObjectId = id; setTimeout(()=>openObjectModal(id), 400); render(); return; }
+    if((step===3||step===4) && id==='tec'){ focusOnObject(id); state.ui.selectedObjectId = id; openObjectModal(id); render(); return; }
+    if((step===6||step===7) && id==='substation_b'){ focusOnObject(id); state.ui.selectedObjectId = id; openObjectModal(id); render(); return; }
+    if((step===8||step===9) && id==='res1'){ focusOnObject(id); state.ui.selectedObjectId = id; openObjectModal(id); render(); return; }
+    return;
+  }
+  focusOnObject(id);
+  state.ui.selectedObjectId = id;
+  render();
+  setTimeout(()=>openObjectModal(id), 500);
+}
+
+// ============================================================
+// ТУЛТИП
+// ============================================================
+let tooltipTimer = null;
+function showTooltip(text, x, y){
+  const tip = $('#tooltip');
+  tip.textContent = text;
+  tip.classList.remove('info');
+  tip.style.left = (x||window.innerWidth/2) + 'px';
+  tip.style.top = (y||window.innerHeight-180) + 'px';
+  tip.classList.remove('hidden');
+  clearTimeout(tooltipTimer);
+  tooltipTimer = setTimeout(()=>tip.classList.add('hidden'), 2400);
+}
+function showInfoTooltip(text, el){
+  const tip = $('#tooltip');
+  tip.textContent = text;
+  tip.classList.add('info');
+  const rect = el.getBoundingClientRect();
+  tip.style.left = (rect.left + rect.width/2) + 'px';
+  tip.style.top = (rect.top - 10) + 'px';
+  tip.classList.remove('hidden');
+  clearTimeout(tooltipTimer);
+  tooltipTimer = setTimeout(()=>tip.classList.add('hidden'), 4000);
+}
+function floatText(text, x, y, color){
+  const el = document.createElement('div');
+  el.className = 'float-text';
+  el.textContent = text;
+  el.style.left = x+'px';
+  el.style.top = y+'px';
+  el.style.color = color||'var(--gold)';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1400);
+}
+
+// ============================================================
+// RENDER UI
+// ============================================================
+function render(){
+  renderStats();
+  renderAttentionDots();
+  renderAdvisor();
+  updateCityVisuals();
+}
+
+function renderStats(){
+  $('#budgetValue').textContent = Math.round(state.budget);
+  $('#heatValue').textContent = Math.round(state.heatForPeople);
+  $('#energyValue').textContent = Math.round(state.energyIntensity);
+  $('#dayInfo').textContent = `День ${Math.min(state.turn,20)}/20`;
+  $('#yearInfo').textContent = `Год ${state.year}, ${SEASON_NAMES[SEASON_ORDER.indexOf(state.season)]}`;
+
+  const bPct = clamp((state.budget+100)/400*100,0,100);
+  const bBar = $('#budgetBar');
+  bBar.style.width = bPct+'%';
+  bBar.style.background = state.budget<0?'var(--red)':'var(--green)';
+
+  const hBar = $('#heatBar');
+  hBar.style.width = clamp(state.heatForPeople,0,100)+'%';
+  hBar.style.background = state.heatForPeople<40?'var(--red)':state.heatForPeople<70?'var(--amber)':'var(--green)';
+
+  const ePct = clamp((100-state.energyIntensity)/60*100,0,100);
+  const eBar = $('#energyBar');
+  eBar.style.width = ePct+'%';
+  eBar.style.background = state.energyIntensity<=70?'var(--green)':'var(--cold)';
+
+  $('#btnSound').textContent = state.ui.soundOn?'🔊':'🔇';
+}
+
+function renderAttentionDots(){
+  const container = $('#attentionDots');
+  container.innerHTML = '';
+  const total = state.flags.tutorialDone ? 3 : 4;
+  for(let i=0;i<total;i++){
+    const dot = document.createElement('div');
+    dot.className = 'attention-dot' + (i >= state.attention ? ' used' : '');
+    container.appendChild(dot);
+  }
+}
+
+function renderAdvisor(){
+  const adv = $('#advisor');
+  if(state.flags.tutorialDone){ adv.classList.add('hidden'); return; }
+  const step = state.tutorialStep;
+  const texts = {
+    1:{text:'Это ваш регион. Каждый объект теряет энергию. Используйте мышь, чтобы вращать камеру, кликайте на здания.',btn:'Понятно'},
+    2:{text:'Кликните на ТЭЦ — самое большое здание с трубами.'},
+    3:{text:'Потери 55%. Причина неизвестна. Нажмите «Обследовать».'},
+    4:{text:'Теперь знаете причину. Нажмите «Починить» — 30 бюджета.'},
+    5:{text:'Потери снизились! Каждый сэкономленный кВт·ч превращается в бюджет.',btn:'Дальше'},
+    6:{text:'Найдите Подстанцию Б и установите счётчик за 5 бюджета.'},
+    7:{text:'Счётчики показывают точные цифры. Без них — только догадки.',btn:'Дальше'},
+    8:{text:'Кликните на Жилмассив №1 и поговорите с жителями.'},
+    9:{text:'Люди — условие успеха. Если им холодно, всё теряет смысл.',btn:'Дальше'},
+    10:{text:'Завершите ход — увидите, сколько бюджета принесла работа.'},
+    11:{text:'Чем ниже энергоёмкость — тем больше денег каждый ход. Петля роста.',btn:'Понятно'},
+    12:{text:'Обучение завершено. Цель: энергоёмкость ≤ 70. И люди не ниже 70.',btn:'Играть'}
+  };
+  const info = texts[step];
+  if(!info){ adv.classList.add('hidden'); return; }
+  adv.classList.remove('hidden');
+  adv.innerHTML = `<div class="advisor-icon">👷</div><div class="advisor-text">${info.text}</div>${info.btn?`<button class="advisor-btn">${info.btn}</button>`:''}`;
+  if(info.btn) adv.querySelector('.advisor-btn').addEventListener('click', ()=>onAdvisorClick(step));
+}
+
+function onAdvisorClick(step){
+  playSound('click');
+  if(step===1) state.tutorialStep = 2;
+  else if(step===5) state.tutorialStep = 6;
+  else if(step===7) state.tutorialStep = 8;
+  else if(step===9) state.tutorialStep = 10;
+  else if(step===11) state.tutorialStep = 12;
+  else if(step===12){ finishTutorial(); return; }
+  render(); saveGame();
+}
+
+function finishTutorial(){
+  state.tutorialStep = 13;
+  state.flags.tutorialDone = true;
+  $('#advisor').classList.add('hidden');
+  render(); saveGame();
+  if(state.pendingLetter){
+    const letter = state.pendingLetter;
+    state.pendingLetter = null;
+    showLetter(letter);
+  }
+}
+
+function getHighlightTarget(){
+  const s = state.tutorialStep;
+  if(s===2||s===3||s===4) return 'tec';
+  if(s===6||s===7) return 'substation_b';
+  if(s===8||s===9) return 'res1';
+  return null;
+}
+
+// ============================================================
+// ЛОГИКА ДЕЙСТВИЙ
+// ============================================================
+function isObjBuildDone(obj) {
+    if (obj.id === 'promzone') return state.builds.smart_meter;
+    if (obj.id === 'agro') return state.builds.biogas;
+    if (obj.id === 'les') return state.builds.wood_chips || state.builds.solar;
+    if (obj.id === 'dump') return state.builds.sorting;
+    if (obj.insulated) return true;
+    return false;
+}
+
+function canDoAction(action, obj){
+  if(state.ui.isAnimating) return {ok:false, reason:'Подождите...'};
+  if(!state.flags.tutorialDone){
+    const step = state.tutorialStep;
+    if(step===3) return (action==='study'&&obj.id==='tec')?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
+    if(step===4) return (action==='repair'&&obj.id==='tec')?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
+    if(step===6) return (obj.id==='substation_b' && (action==='measure'||action==='study'))?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
+    if(step===8) return (action==='talk'&&obj.id==='res1')?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
+    return {ok:false,reason:'Следуйте подсказкам'};
+  }
+  if(action==='study'){
+    if(obj.studied) return {ok:false,reason:'Уже обследовано'};
+    if(state.attention<1) return {ok:false,reason:'Нет внимания'};
+    return {ok:true};
+  }
+  if(action==='measure'){
+    const isTutStep6 = !state.flags.tutorialDone && state.tutorialStep===6 && obj.id==='substation_b';
+    if(!obj.studied && !isTutStep6) return {ok:false,reason:'Сначала обследуйте'};
+    if(obj.metered) return {ok:false,reason:'Счётчик уже стоит'};
+    if(state.attention<1) return {ok:false,reason:'Нет внимания'};
+    if(state.budget<5) return {ok:false,reason:'Нужно 5 бюджета'};
+    return {ok:true};
+  }
+  if(action==='repair'){
+    if(!obj.studied) return {ok:false,reason:'Сначала обследуйте'};
+    if(obj.loss<=0) return {ok:false,reason:'Уже в порядке'};
+    if(obj.repairCost<=0 && obj.repairEffect<=0) return {ok:false,reason:'Починка не требуется'};
+    if(state.attention<1) return {ok:false,reason:'Нет внимания'};
+    if(state.budget<obj.repairCost) return {ok:false,reason:`Нужно ${obj.repairCost} бюджета`};
+    return {ok:true};
+  }
+  if(action==='build'){
+    const opts = getAvailableBuilds(obj);
+    if(opts.length===0) return {ok:false,reason:'Нет доступных построек'};
+    if(state.attention<2) return {ok:false,reason:'Нужно 2 внимания'};
+    const affordable = opts.find(o=>state.budget>=BUILDS[o].cost);
+    if(!affordable) return {ok:false,reason:`Нужно от ${Math.min(...opts.map(o=>BUILDS[o].cost))} бюджета`};
+    return {ok:true};
+  }
+  if(action==='talk'){
+    if(obj.talks>=2) return {ok:false,reason:'Уже говорили'};
+    if(state.attention<1) return {ok:false,reason:'Нет внимания'};
+    return {ok:true};
+  }
+  return {ok:false,reason:'Неизвестное действие'};
+}
+
+function getAvailableBuilds(obj){
+  if(!obj.studied || !obj.buildOptions) return [];
+  return obj.buildOptions.filter(bId=>{
+    const b = BUILDS[bId];
+    if(!b) return false;
+    if(bId==='build_insulation') return !obj.insulated;
+    if(bId==='build_biogas') return !state.builds.biogas;
+    if(bId==='build_wood_chips') return !state.builds.wood_chips;
+    if(bId==='build_sorting') return !state.builds.sorting;
+    if(bId==='build_smart_meter_industrial') return !state.builds.smart_meter;
+    if(bId==='build_solar'){
+      if(state.builds.solar) return false;
+      if(state.flags.localGenerators<2) return false;
+      if(state.turn<13) return false;
+    }
+    return true;
+  });
+}
+
+async function doAction(action, obj){
+  if(state.ui.isAnimating) return;
+  const now = Date.now();
+  if(now - state.lastActionTime < 200) return;
+  state.lastActionTime = now;
+  const check = canDoAction(action, obj);
+  if(!check.ok){ showTooltip(check.reason); playSound('error'); return; }
+
+  if(action === 'talk'){
+    closeModal();
+    setTimeout(()=>openTalkModal(obj.id), 200);
+    return;
+  }
+
+  closeModal();
+  state.ui.isAnimating = true;
+
+  await cinematicAction(obj.id, ()=>{
+    if(action==='study'){
+      obj.studied = true;
+      if(obj.factId) unlockFact(obj.factId);
+      state.attention--;
+      playSound('leak');
+      floatText(`🔍 Изучено`, window.innerWidth/2, window.innerHeight/2, 'var(--gold)');
+      if(!state.flags.tutorialDone && state.tutorialStep===3) state.tutorialStep = 4;
+    }
+    if(action==='measure'){
+      obj.studied = true;
+      obj.metered = true;
+      state.flags.metersInstalled++;
+      unlockFact('fact_meter');
+      state.attention--;
+      state.budget -= 5;
+      playSound('leak');
+      floatText(`📊 Счётчик установлен`, window.innerWidth/2, window.innerHeight/2, 'var(--green)');
+      if(!state.flags.tutorialDone && state.tutorialStep===6) state.tutorialStep = 7;
+    }
+    if(action==='repair'){
+      const eff = Math.min(obj.loss, obj.repairEffect);
+      obj.loss = Math.max(0, obj.loss - obj.repairEffect);
+      obj.repaired = (obj.repaired||0) + 1;
+      state.heatForPeople = clamp(state.heatForPeople + obj.repairHeatImpact, 0, 100);
+      state.budget -= obj.repairCost;
+      state.attention--;
+      recalcEnergyIntensity();
+      if(state.objects.reduce((s,o)=>s+o.repaired,0)===1) unlockFact('fact_energy');
+      floatText(`−${eff}% потерь`, window.innerWidth/2, window.innerHeight/2 - 40, 'var(--gold)');
+      if(!state.flags.tutorialDone && state.tutorialStep===4) state.tutorialStep = 5;
+    }
+    state.log.push({turn:state.turn, action, target:obj.id});
+  });
+
+  render(); saveGame();
+  state.ui.isAnimating = false;
+
+  if(!state.flags.tutorialDone && state.tutorialStep===9){
+    setTimeout(()=>{
+      showDialog('Жители: «Мы готовы помогать, но объясните, что происходит».', ()=>renderAdvisor());
+    }, 400);
+  } else {
+    setTimeout(()=>openObjectModal(obj.id), 300);
+  }
+}
+
+function executeBuild(buildId, obj){
+  const b = BUILDS[buildId];
+  if(!b) return;
+  if(state.attention < b.attention){ showTooltip('Нужно '+b.attention+' внимания'); return; }
+  if(state.budget < b.cost){ showTooltip('Нужно '+b.cost+' бюджета'); return; }
+
+  closeModal();
+  cinematicAction(obj.id, ()=>{
+    state.attention -= b.attention;
+    state.budget -= b.cost;
+    if(buildId==='build_biogas'){ obj.loss = 0; state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+5,0,100); state.builds.biogas = true; unlockFact('fact_biogas'); unlockFact('fact_local'); state.pendingEffects.push({dueTurn:state.turn+1, budget:10}); }
+    if(buildId==='build_wood_chips'){ state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+8,0,100); state.builds.wood_chips = true; unlockFact('fact_les'); unlockFact('fact_local'); for(let i=1;i<=3;i++) state.pendingEffects.push({dueTurn:state.turn+i, budget:5}); }
+    if(buildId==='build_sorting'){ state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+6,0,100); state.builds.sorting = true; unlockFact('fact_dump'); unlockFact('fact_local'); }
+    if(buildId==='build_insulation'){ obj.loss = Math.max(0, obj.loss-10); state.heatForPeople = clamp(state.heatForPeople+10,0,100); state.builds.insulation++; obj.insulated = true; unlockFact('fact_insulation'); }
+    if(buildId==='build_smart_meter_industrial'){ obj.loss = Math.max(0, obj.loss-15); state.flags.metersInstalled += 3; state.builds.smart_meter = true; unlockFact('fact_smart_meter'); }
+    if(buildId==='build_solar'){ state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+3,0,100); state.builds.solar = true; unlockFact('fact_solar'); unlockFact('fact_local'); }
+    recalcEnergyIntensity();
+    playSound('repair');
+    floatText(`🏗 ${b.name}`, window.innerWidth/2, window.innerHeight/2, 'var(--green)');
+    addBuiltStructure(obj.id, buildId);
+  }).then(()=>{
+    render(); saveGame();
+    state.ui.isAnimating = false;
+    setTimeout(()=>openObjectModal(obj.id), 300);
+  });
+}
+
+function addBuiltStructure(objId, buildId){
+  const co = cityObjects[objId];
+  if(!co) return;
+  let newObj = null;
+  if(buildId==='build_biogas'){
+    newObj = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 8, 0, Math.PI*2, 0, Math.PI/2), getMat('bio_dome2', 0x5aa86a));
+    newObj.position.set(2.5, 0, 0);
+  }
+  if(buildId==='build_wood_chips'){
+    newObj = new THREE.Mesh(new THREE.ConeGeometry(1, 1.2, 8), getMat('chips2', 0xc0a060));
+    newObj.position.set(2, 0.6, 0);
+  }
+  if(buildId==='build_sorting'){
+    newObj = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 1.2), getMat('sorting2', 0x6a8a7a));
+    newObj.position.set(2, 0.6, 0);
+  }
+  if(buildId==='build_smart_meter_industrial'){
+    newObj = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), getMat('meter2', 0x5c8b9e, {metalness:0.6}));
+    newObj.position.set(0, 4, 0);
+  }
+  if(buildId==='build_solar'){
+    const solarGroup = new THREE.Group();
+    for(let i=0;i<3;i++){
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.7), getMat('solar2', 0x2a4a6a, {metalness:0.8}));
+      panel.position.set(-2 + i*1.5, 0.8, 1.5);
+      panel.rotation.x = -0.3;
+      panel.castShadow = true;
+      solarGroup.add(panel);
+    }
+    co.group.add(solarGroup);
+    solarGroup.scale.set(0.01, 0.01, 0.01);
+    activeAnimations.push({obj: solarGroup, start: performance.now(), duration: 600, target: new THREE.Vector3(1,1,1)});
+    return;
+  }
+  if(newObj){
+    newObj.castShadow = true;
+    co.group.add(newObj);
+    newObj.scale.set(0.01, 0.01, 0.01);
+    activeAnimations.push({obj: newObj, start: performance.now(), duration: 600, target: new THREE.Vector3(1,1,1)});
+  }
+  if(buildId==='build_insulation'){
+    co.group.traverse(c=>{
+      if(c.isMesh && c.material.color.getHex()===0xb8a888) c.material.color.setHex(0xd0c090);
+    });
+  }
+}
+
+// ============================================================
+// МОДАЛКИ
+// ============================================================
+function openModal(html){
+  state.ui.activeModal = state.ui.activeModal || 'generic';
+  $('#modalRoot').classList.remove('hidden');
+  $('#modalContent').innerHTML = html;
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'modal-close';
+  closeBtn.innerHTML = '✕';
+  closeBtn.addEventListener('click', closeModal);
+  $('#modalContent').prepend(closeBtn);
+}
+function closeModal(){
+  state.ui.activeModal = null;
+  $('#modalRoot').classList.add('hidden');
+  $('#modalContent').innerHTML = '';
+  if(document.activeElement) document.activeElement.blur();
+}
+
+function openObjectModal(id){
+  const obj = state.objects.find(o=>o.id===id);
+  if(!obj) return;
+  state.ui.activeModal = 'object';
+  state.ui.selectedObjectId = id;
+
+  const tutActive = !state.flags.tutorialDone;
+  const step = state.tutorialStep;
+  let advisorText = '';
+  if(tutActive){
+    if(step===3) advisorText = '<b>Советник:</b> Потери 55%. Причина неизвестна. Нажмите «Обследовать».';
+    if(step===4) advisorText = '<b>Советник:</b> Теперь знаете причину. Нажмите «Починить» — 30 бюджета.';
+    if(step===6 && obj.id==='substation_b') advisorText = '<b>Советник:</b> Установите счётчик за 5 бюджета.';
+    if(step===8 && obj.id==='res1') advisorText = '<b>Советник:</b> Поговорите с жителями — это бесплатно.';
+  }
+
+  const lossCls = obj.loss<=0?'zero':obj.loss<=15?'low':'';
+  const lossKnown = obj.studied;
+
+  let html = `<div class="modal-title"><span>${obj.icon}</span> ${obj.name}</div>`;
+  html += `<div class="modal-body">`;
+  if(lossKnown){
+    html += `<div class="modal-loss ${lossCls}">Потери: ${obj.metered?obj.loss+'%':'~'+Math.round(obj.loss/5)*5+'%'}</div>`;
+    if(obj.causeText) html += `<div class="modal-cause ${obj.loss<=0?'ok':''}">${obj.loss<=0?'✅ В порядке':obj.causeText}</div>`;
+  } else {
+    html += `<div class="modal-loss">Потери: ? %</div>`;
+    html += `<div class="modal-cause">Причина неизвестна. Проведите обследование.</div>`;
+  }
+  if(obj.metered) html += `<div style="color:var(--green);font-size:12px;margin-top:6px">📊 Счётчик установлен — точный учёт</div>`;
+  html += `</div>`;
+
+  const actions = [];
+  const buildAvail = getAvailableBuilds(obj);
+  const isTutStep6 = !state.flags.tutorialDone && state.tutorialStep===6 && obj.id==='substation_b';
+
+  if(!obj.studied && !isTutStep6) actions.push({id:'study', label:'👁 Обследовать', cost:'1 внимание', primary:true});
+  if((obj.studied || isTutStep6) && !obj.metered) actions.push({id:'measure', label:'📊 Замерить', cost:'1 внимание + 5 💰', primary: isTutStep6});
+  if(obj.studied && obj.loss>0 && (obj.repairCost>0 || obj.repairEffect>0)) actions.push({id:'repair', label:'🔧 Починить', cost:`1 внимание + ${obj.repairCost} 💰`});
+  if(buildAvail.length>0){
+    const minCost = Math.min(...buildAvail.map(b=>BUILDS[b].cost));
+    actions.push({id:'build', label:'🏗 Построить', cost:`2 внимания + от ${minCost} 💰`});
+  }
+  if((obj.talks||0)<2) actions.push({id:'talk', label:'💬 Переговорить', cost:'1 внимание · +доверие'});
+
+  if(actions.length>0){
+    html += `<div class="modal-actions">`;
+    actions.forEach(a=>{
+      const check = canDoAction(a.id, obj);
+      const disabled = !check.ok;
+      const primaryCls = a.primary && !disabled ? ' primary' : '';
+      html += `<button class="btn-modal${primaryCls}" data-action="${a.id}" ${disabled?'disabled':''} title="${disabled?check.reason:''}">
+        <span>${a.label}</span>
+        <span class="btn-modal-cost">${a.cost}</span>
+      </button>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div style="margin-top:14px;font-size:11px;color:var(--text-dim);text-align:center">Внимание: ${state.attention} / ${state.flags.tutorialDone?3:4}</div>`;
+  if(advisorText) html += `<div class="modal-advisor">${advisorText}</div>`;
+
+  openModal(html);
+  $('#modalContent').querySelectorAll('.btn-modal').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const action = btn.dataset.action;
+      if(action==='build'){ openBuildModal(obj.id); return; }
+      doAction(action, obj);
+    });
+  });
+}
+
+// ============================================================
+// ДИАЛОГ
+// ============================================================
+function openTalkModal(id){
+  const obj = state.objects.find(o=>o.id===id);
+  if(!obj) return;
+  const check = canDoAction('talk', obj);
+  if(!check.ok){ showTooltip(check.reason); playSound('error'); return; }
+
+  let dialog = DIALOGS[id] || {portrait:'🧑', name:'Житель', text:'Здравствуйте.', replies:[{text:'Понятно',heat:3}]};
+  
+  // Если постройка уже выполнена, меняем текст на благодарность
+  if (isObjBuildDone(obj)) {
+      dialog = { 
+          portrait: dialog.portrait, 
+          name: dialog.name, 
+          text: '«Спасибо вам огромное! После ваших улучшений стало намного лучше. Мы это очень ценим.»', 
+          replies: [{text: 'Работаем дальше!', heat: 5}] 
+      };
+  }
+
+  state.ui.activeModal = 'talk';
+
+  let html = `<div class="talk-portrait">${dialog.portrait}</div>`;
+  html += `<div class="talk-name">${dialog.name}</div>`;
+  html += `<div class="talk-text">${dialog.text}</div>`;
+  html += `<div class="talk-replies">`;
+  dialog.replies.forEach((r, i)=>{
+    const effects = [];
+    if(r.heat) effects.push(`+${r.heat} 🧡`);
+    html += `<button class="talk-reply" data-idx="${i}">
+      <span>${r.text}</span>
+      <span class="talk-reply-effect">${effects.join(' · ')}</span>
+    </button>`;
+  });
+  html += `</div>`;
+  openModal(html);
+
+  $('#modalContent').querySelectorAll('.talk-reply').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = parseInt(btn.dataset.idx);
+      const reply = dialog.replies[idx];
+      applyTalkResult(obj, reply);
+    });
+  });
+}
+
+function applyTalkResult(obj, reply){
+  obj.talks = (obj.talks||0)+1;
+  state.attention--;
+  state.heatForPeople = clamp(state.heatForPeople + (reply.heat||0), 0, 100);
+  if(reply.budget) state.budget += reply.budget;
+  if(state.log.filter(l=>l.action==='talk').length === 0) unlockFact('fact_saving');
+  playSound('click');
+  floatText(`+${reply.heat} 🧡`, window.innerWidth/2, window.innerHeight/2, 'var(--green)');
+  state.log.push({turn:state.turn, action:'talk', target:obj.id});
+
+  closeModal();
+  render(); saveGame();
+
+  if(!state.flags.tutorialDone && state.tutorialStep===8){
+    state.tutorialStep = 9;
+    setTimeout(()=>{
+      showDialog('Жители: «Мы готовы помогать, но объясните, что происходит».', ()=>{
+        renderAdvisor();
+      });
+    }, 300);
+    return;
+  }
+  setTimeout(()=>openObjectModal(obj.id), 200);
+}
+
+function openBuildModal(id){
+  const obj = state.objects.find(o=>o.id===id);
+  if(!obj) return;
+  const opts = getAvailableBuilds(obj);
+  if(opts.length===0){ showTooltip('Нет доступных построек'); return; }
+  if(opts.length===1){
+    const bId = opts[0];
+    const b = BUILDS[bId];
+    if(state.budget<b.cost){ showTooltip('Нужно '+b.cost+' бюджета'); playSound('error'); return; }
+    if(state.attention<b.attention){ showTooltip('Нужно '+b.attention+' внимания'); playSound('error'); return; }
+    executeBuild(bId, obj);
+    return;
+  }
+  state.ui.activeModal = 'build';
+  let html = `<div class="modal-title">🏗 Построить</div><div class="modal-body">`;
+  opts.forEach(bId=>{
+    const b = BUILDS[bId];
+    const disabled = state.budget<b.cost || state.attention<b.attention;
+    html += `<div style="background:var(--panel-light);padding:12px;border-radius:8px;margin-bottom:10px;opacity:${disabled?.5:1}">
+      <div style="font-weight:700;color:var(--amber);margin-bottom:6px">${b.icon} ${b.name}</div>
+      <div style="font-size:13px;margin-bottom:8px">${b.desc}</div>
+      <button class="btn-modal primary" data-build="${bId}" ${disabled?'disabled':''} style="width:100%">
+        <span>Построить</span>
+        <span class="btn-modal-cost">${b.attention} внимания · ${b.cost} 💰</span>
+      </button>
+    </div>`;
+  });
+  html += `</div>`;
+  openModal(html);
+  $('#modalContent').querySelectorAll('[data-build]').forEach(btn=>{
+    btn.addEventListener('click', ()=>executeBuild(btn.dataset.build, obj));
+  });
+}
+
+function showDialog(text, onClose){
+  state.ui.activeModal = 'dialog';
+  let html = `<div class="modal-title">💬 Диалог</div>`;
+  html += `<div class="modal-body" style="font-size:15px;line-height:1.6;font-style:italic">${text}</div>`;
+  html += `<button class="btn-modal primary" id="dialogOk" style="width:100%">Продолжить</button>`;
+  openModal(html);
+  $('#dialogOk').addEventListener('click', ()=>{ closeModal(); if(onClose) onClose(); });
+}
+
+// ============================================================
+// СОБЫТИЯ (КРИЗИСЫ)
+// ============================================================
+function showEvent(event) {
+    state.ui.activeModal = 'event';
+    let html = `<div class="modal-title">${event.title}</div>`;
+    html += `<div class="modal-body" style="font-size:14px; line-height:1.6;">${event.text}</div>`;
+    html += `<div class="modal-actions" style="grid-template-columns: 1fr;">`;
+    event.options.forEach((opt, i) => {
+        html += `<button class="btn-modal primary event-option" data-idx="${i}">
+            <span style="font-weight:700;">${opt.text}</span>
+        </button>`;
+    });
+    html += `</div>`;
+    openModal(html);
+
+    $('#modalContent').querySelectorAll('.event-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.idx);
+            const opt = event.options[idx];
+            opt.effect(state);
+            recalcEnergyIntensity(); // пересчитываем после изменения
+            closeModal();
+            saveGame();
+            render();
+            // Показываем письмо, если оно есть, или просто продолжаем
+            if(state.pendingLetter) {
+                const l = state.pendingLetter;
+                state.pendingLetter = null;
+                setTimeout(() => showLetter(l), 300);
+            }
+        });
+    });
+}
+
+// ============================================================
+// СПРАВОЧНИК И ПОМОЩЬ
+// ============================================================
+function openEncyclopedia(){
+  state.ui.activeModal = 'encyclopedia';
+  const allFacts = Object.keys(ENCYCLOPEDIA);
+  const unlocked = state.unlockedFacts;
+  let html = `<div class="modal-title">📖 Справочник</div>`;
+  html += `<div class="modal-body" style="font-size:13px;color:var(--text-dim)">Открыто ${unlocked.length} из ${allFacts.length} карточек.</div>`;
+  html += `<div class="encyclopedia">`;
+  allFacts.forEach(id=>{
+    const f = ENCYCLOPEDIA[id];
+    if(unlocked.indexOf(id)>=0){
+      html += `<div class="ency-card"><div class="ency-card-title">${f.title}</div><div class="ency-card-text">${f.text}</div><div class="ency-card-source">${f.source}</div></div>`;
+    } else {
+      html += `<div class="ency-card locked"><div class="ency-card-title">?</div><div class="ency-card-text">Откроется по мере игры</div></div>`;
+    }
+  });
+  html += `</div>`;
+  openModal(html);
+}
+
+function openHelp(){
+  state.ui.activeModal = 'help';
+  const html = `
+    <div class="modal-title">❓ Как играть</div>
+    <div class="help-section">
+      <h3><span class="help-icon">🏭</span> Потери энергии</h3>
+      <p>Каждое здание <b>теряет энергию</b> — тепло уходит через дырявые трубы, старые окна. Чем выше потери, тем <b>меньше бюджета</b> вы получаете каждый ход.</p>
+      <p>Красная точка над зданием = большие потери. Кликните на здание → <b>«Обследовать»</b> → <b>«Починить»</b>.</p>
+    </div>
+    <div class="help-section">
+      <h3><span class="help-icon">⚡</span> Зачем нужны подстанции?</h3>
+      <p>Подстанции распределяют энергию от источников (ТЭЦ, котельные) к потребителям. Если их не обслуживать, они теряют энергию при передаче.</p>
+    </div>
+    <div class="help-section">
+      <h3><span class="help-icon">📊</span> Зачем замеры?</h3>
+      <p>Без счётчика вы видите только <b>примерные</b> потери. Счётчик показывает <b>точную</b> цифру и открывает карточки в справочнике.</p>
+    </div>
+    <div class="help-section">
+      <h3><span class="help-icon">🧡</span> Доверие людей</h3>
+      <p>Сердца — это <b>доверие жителей</b>. Не валюта, а условие выживания проекта.</p>
+      <p>• Упало <b>ниже 25</b> → <b>социальный взрыв, игра провалена</b><br>
+      • Ниже 60 → плохая концовка<br>
+      • Выше 70 → путь к лучшей концовке «Резонанс»</p>
+      <p>Доверие повышают: <b>переговоры</b>, <b>утепление</b>, хорошие письма.</p>
+    </div>
+    <div class="help-section">
+      <h3><span class="help-icon">💬</span> Переговоры</h3>
+      <p>Кликните на здание → <b>«Переговорить»</b>. Вы услышите жителя и выберете ответ. Каждый ответ даёт <b>+3..8 доверия</b>. Максимум 2 раза на объект.</p>
+    </div>
+    <div class="help-section">
+      <h3><span class="help-icon">⚠️</span> События</h3>
+      <p>Иногда будут происходить <b>кризисы</b> (морозы, аварии). Вам придётся выбирать: потратить деньги, потерять доверие или допустить рост энергоёмкости.</p>
+    </div>
+    <div class="help-section">
+      <h3><span class="help-icon">🎯</span> Цель</h3>
+      <p>20 ходов. Снизить энергоёмкость до <b>70 или ниже</b>. Сохранить доверие людей <b>70+</b>. Не уйти в долг.</p>
+    </div>`;
+  openModal(html);
+}
+
+function showLetter(letter){
+  state.ui.activeModal = 'letter';
+  if(letter.effect) letter.effect(state);
+  playSound('letter');
+  let html = `<div class="letter-portrait">${letter.portrait}</div>`;
+  html += `<div class="modal-body" style="font-size:15px;line-height:1.6;font-style:italic;text-align:center">${letter.text}</div>`;
+  html += `<div class="letter-sign">— ${letter.sign}</div>`;
+  html += `<button class="btn-modal primary" id="letterOk" style="width:100%;margin-top:16px">Понятно</button>`;
+  openModal(html);
+  $('#letterOk').addEventListener('click', ()=>{ closeModal(); saveGame(); render(); });
+}
+
+// ============================================================
+// ХОД
+// ============================================================
+function endTurn(){
+  if(state.ui.isAnimating) return;
+  if(!state.flags.tutorialDone && state.tutorialStep!==10) return;
+  state.ui.isAnimating = true;
+  if(checkGameOver()){ state.ui.isAnimating = false; return; }
+
+  const income = Math.floor(15 + (100 - state.energyIntensity) / 4);
+  state.budget += income;
+
+  const due = (state.pendingEffects||[]).filter(p=>p.dueTurn===state.turn);
+  due.forEach(p=>{ state.budget += p.budget; });
+  state.pendingEffects = (state.pendingEffects||[]).filter(p=>p.dueTurn!==state.turn);
+
+  state.turn += 1;
+  state.year = Math.ceil(state.turn / 4);
+  state.season = SEASON_ORDER[(state.turn - 1) % 4];
+  state.attention = state.flags.tutorialDone ? 3 : 4;
+  state.ui.selectedObjectId = null;
+
+  if(state.turn % 4 === 0 && state.turn <= 20){
+    const drop = state.flags.localGenerators >= 2 ? 2 : 5;
+    state.heatForPeople = clamp(state.heatForPeople - drop, 0, 100);
+    unlockFact('fact_winter');
+  }
+
+  if(checkGameOver()){ state.ui.isAnimating = false; return; }
+  if(state.turn > 20){ state.ui.isAnimating = false; saveGame(); render(); checkEnding(); return; }
+
+  // События
+  if (state.turn % 4 === 2 && state.turn <= 18) {
+      const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+      state.pendingEvent = ev;
+  }
+
+  const letter = LETTERS[state.turn];
+  if(letter) state.pendingLetter = letter;
+
+  const wasStep10 = !state.flags.tutorialDone && state.tutorialStep===10;
+  if(wasStep10){
+    state.tutorialStep = 11;
+    saveGame(); render();
+    state.ui.isAnimating = false;
+    showTurnBanner(income, ()=>{});
+    return;
+  }
+  
+  saveGame(); render();
+  showTurnBanner(income, ()=>{
+    if (state.pendingEvent && state.flags.tutorialDone) {
+        const ev = state.pendingEvent;
+        state.pendingEvent = null;
+        showEvent(ev);
+        state.ui.isAnimating = false;
+    } else if(state.pendingLetter && state.flags.tutorialDone){
+      const l = state.pendingLetter;
+      state.pendingLetter = null;
+      showLetter(l);
+      state.ui.isAnimating = false;
+    } else {
+      state.ui.isAnimating = false;
+      render();
+    }
+  });
+}
+
+function showTurnBanner(income, onDone){
+  playSound('turn');
+  const banner = document.createElement('div');
+  banner.className = 'turn-banner';
+  banner.textContent = `Год ${state.year}, ${SEASON_NAMES[SEASON_ORDER.indexOf(state.season)]} · +${income} 💰`;
+  document.body.appendChild(banner);
+  setTimeout(()=>{
+    banner.style.transition = 'opacity .4s';
+    banner.style.opacity = '0';
+    setTimeout(()=>{ banner.remove(); if(onDone) onDone(); }, 400);
+  }, 1500);
+}
+
+function checkGameOver(){
+  if(state.heatForPeople < 25){ showEnding('fail_heat'); return true; }
+  if(state.energyIntensity >= 95 && state.heatForPeople < 40){ showEnding('fail_catastrophe'); return true; }
+  if(state.budget < -100){ showEnding('fail_budget'); return true; }
+  return false;
+}
+
+function checkEnding(){
+  let ending;
+  if(state.flags.creditsTaken===0 && state.flags.localGenerators>=2 && state.flags.metersInstalled>=2 && state.energyIntensity<=70 && state.heatForPeople>=70){
+    ending = 'resonance';
+  } else if(state.energyIntensity<=70 && state.heatForPeople<60){
+    ending = 'showcase';
+  } else if(state.heatForPeople>=60 && state.energyIntensity>85){
+    ending = 'warmth';
+  } else { ending = 'compromise'; }
+  showEnding(ending);
+}
+function showEnding(key){
+  const e = ENDINGS[key];
+  if(!e) return;
+  unlockFact('fact_what_next');
+  playSound(key==='resonance'?'good':'bad');
+  const screen = document.createElement('div');
+  screen.className = 'ending-screen '+e.cls;
+  screen.innerHTML = `
+    <div class="ending-content">
+      <div class="ending-title">${e.name}</div>
+      <div class="ending-text">${e.text}</div>
+      <div class="ending-buttons">
+        <button class="btn-start" id="btnPlayAgain">Играть снова</button>
+        <button class="btn-reset" id="btnDownloadCard">Скачать карточку</button>
+      </div>
+    </div>`;
+  document.body.appendChild(screen);
+  $('#btnPlayAgain').addEventListener('click', ()=>{ resetGame(); location.reload(); });
+  $('#btnDownloadCard').addEventListener('click', ()=>downloadCard(key));
+  setTimeout(()=>showDiary(e), 2000);
+}
+function showDiary(e){
+  const screen = document.createElement('div');
+  screen.className = 'diary-screen';
+  const lines = e.diary.split('\n');
+  let html = '<div class="diary-content"><div class="diary-text">';
+  lines.forEach((l,i)=>{ html += `<div class="diary-line" style="animation-delay:${i*1.2}s">${l}</div>`; });
+  html += '</div></div>';
+  html += `<div class="titr">В среднем семья экономит 25% электроэнергии. Источник: IEA, 2023.</div>`;
+  screen.innerHTML = html;
+  document.body.appendChild(screen);
+}
+function downloadCard(endingKey){
+  const e = ENDINGS[endingKey];
+  const w = 900, h = 700;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  renderer.render(scene, camera);
+  const screenshot = renderer.domElement.toDataURL('image/png');
+  const img = new Image();
+  img.onload = ()=>{
+    ctx.drawImage(img, 0, 0, w, h);
+    ctx.fillStyle = 'rgba(26,35,50,0.72)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#b87333'; ctx.lineWidth = 3;
+    ctx.strokeRect(20, 20, w-40, h-40);
+    ctx.fillStyle = '#e8a33d';
+    ctx.font = 'bold 48px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('БАЛАНС', w/2, 100);
+    ctx.fillStyle = '#e8dcc4';
+    ctx.font = '30px Georgia, serif';
+    ctx.fillText(e.name, w/2, 160);
+    ctx.font = '18px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    const stats = [
+      ['Энергоёмкость:', Math.round(state.energyIntensity)+' / 70'],
+      ['Тепло для людей:', Math.round(state.heatForPeople)+' / 100'],
+      ['Бюджет:', Math.round(state.budget)],
+      ['Ходов пройдено:', Math.min(state.turn-1,20)+' / 20'],
+      ['Локальных генераторов:', state.flags.localGenerators],
+      ['Установлено счётчиков:', state.flags.metersInstalled]
+    ];
+    stats.forEach((s,i)=>{
+      ctx.fillStyle = '#9aa5b1'; ctx.fillText(s[0], 80, 260+i*36);
+      ctx.fillStyle = '#ffd966'; ctx.fillText(s[1], 480, 260+i*36);
+    });
+    ctx.fillStyle = '#e8a33d';
+    ctx.font = 'italic 16px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('3D-симулятор энергосистемы региона', w/2, h-60);
+    canvas.toBlob(blob=>{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `balans3d-${endingKey}.png`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    });
+  };
+  img.src = screenshot;
+}
+
+// ============================================================
+// АНИМАЦИЯ
+// ============================================================
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1);
+
+  // Камера
+  if(cam.mode === 'overview'){
+    cam.overviewAngle += dt * 0.08;
+    const r = 26;
+    cam.targetPos.x = Math.cos(cam.overviewAngle) * r;
+    cam.targetPos.z = Math.sin(cam.overviewAngle) * r;
+    cam.targetPos.y = 20;
+    cam.targetLook.set(0, 1, 0);
+  }
+  const lerpSpeed = Math.min(3 * dt, 1);
+  cam.currentPos.lerp(cam.targetPos, lerpSpeed);
+  cam.currentLook.lerp(cam.targetLook, lerpSpeed);
+  camera.position.copy(cam.currentPos);
+  camera.lookAt(cam.currentLook);
+
+  // Кольцо
+  if(selectionRing.mesh.visible){
+    const s = 1 + Math.sin(performance.now() * 0.005) * 0.1;
+    selectionRing.mesh.scale.set(s, s, 1);
+    selectionRing.mesh.rotation.z += dt * 0.5;
+  }
+
+  // Дым
+  state.objects.forEach(obj=>{
+    const co = cityObjects[obj.id];
+    if(co && co.smoke) co.smoke.update(dt);
+  });
+
+  // Люди
+  people.forEach(p=>p.update(dt));
+  // Машины
+  cars.forEach(c=>c.update(dt));
+
+  // Анимации масштаба
+  for(let i=activeAnimations.length-1; i>=0; i--){
+    const a = activeAnimations[i];
+    const elapsed = (performance.now() - a.start) / a.duration;
+    if(elapsed >= 1){
+      a.obj.scale.copy(a.target);
+      activeAnimations.splice(i, 1);
+    } else {
+      const ease = 1 - Math.pow(1 - elapsed, 3);
+      a.obj.scale.set(a.target.x * ease, a.target.y * ease, a.target.z * ease);
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================================
+function init(){
+  initThree();
+  animate();
+
+  setTimeout(()=>{
+    $('#loader').classList.add('hidden');
+    const loaded = loadSave();
+    if(loaded && loaded.turn>0){
+      state = loaded;
+      $('#btnStart').textContent = 'Продолжить';
+      $('#btnReset').classList.remove('hidden');
+      $('#btnStart').addEventListener('click', ()=>startGame(false));
+      $('#btnReset').addEventListener('click', ()=>{
+        if(confirm('Сбросить прогресс?')){ resetGame(); $('#btnStart').textContent='Начать'; $('#btnReset').classList.add('hidden'); }
+      });
+    } else {
+      state = createDefaultState();
+      $('#btnStart').addEventListener('click', ()=>startGame(true));
+    }
+    $('#startScreen').classList.remove('hidden');
+  }, 800);
+
+  $('#btnHelp').addEventListener('click', ()=>{ playSound('click'); openHelp(); });
+  $('#btnEncyclopedia').addEventListener('click', ()=>{ playSound('click'); openEncyclopedia(); });
+  $('#btnSound').addEventListener('click', ()=>{ state.ui.soundOn = !state.ui.soundOn; saveGame(); $('#btnSound').textContent = state.ui.soundOn?'🔊':'🔇'; });
+  $('#btnResetGame').addEventListener('click', ()=>{ if(confirm('Сбросить игру?')){ resetGame(); location.reload(); } });
+  $('#btnEndTurn').addEventListener('click', ()=>{ playSound('click'); endTurn(); });
+  $('#btnOverview').addEventListener('click', ()=>{ playSound('click'); returnToOverview(); });
+
+  $('#budgetStat').addEventListener('mouseenter', ()=>showInfoTooltip('Бюджет тратится на ремонт и постройки. Каждый ход пополняется от эффективности.', $('#budgetStat')));
+  $('#heatStat').addEventListener('mouseenter', ()=>showInfoTooltip('Доверие людей. Ниже 25 — социальный взрыв и проигрыш. Нужно 70+ для лучшей концовки.', $('#heatStat')));
+  $('#energyStat').addEventListener('mouseenter', ()=>showInfoTooltip('Энергоёмкость. Цель — снизить до 70. Каждая единица потерь влияет на бюджет.', $('#energyStat')));
+
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){
+      if(state.ui.activeModal) closeModal();
+      else if(cam.mode !== 'overview') returnToOverview();
+    }
+  });
+}
+
+function startGame(isNew){
+  if(isNew){
+    state = createDefaultState();
+    state.tutorialStep = 1;
+    state.attention = 4;
+    saveGame();
+  }
+  $('#startScreen').classList.add('hidden');
+  $('#gameUI').classList.remove('hidden');
+  if(state.tutorialStep===0 && !state.flags.tutorialDone){
+    state.tutorialStep = 1;
+    state.attention = 4;
+  }
+  render();
+  saveGame();
+  if(isNew && !state.flags.helpSeen){
+    state.flags.helpSeen = true;
+    saveGame();
+    setTimeout(()=>openHelp(), 500);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
