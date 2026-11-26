@@ -30,8 +30,6 @@ button{font-family:inherit;cursor:pointer}
 .btn-start{background:linear-gradient(180deg,var(--amber),var(--copper));color:#1a2332;border:none;padding:18px 72px;font-size:18px;font-weight:700;letter-spacing:3px;border-radius:8px;box-shadow:0 6px 28px rgba(232,163,61,.5);transition:transform .15s,box-shadow .15s}
 .btn-start:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(232,163,61,.7)}
 .btn-start:active{transform:scale(.97)}
-.btn-reset{background:transparent;border:1px solid var(--text-dim);color:var(--text-dim);padding:8px 24px;font-size:13px;border-radius:6px;transition:all .15s}
-.btn-reset:hover{color:var(--red);border-color:var(--red)}
 
 .game-ui{position:fixed;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column}
 
@@ -181,10 +179,9 @@ button{font-family:inherit;cursor:pointer}
   <div class="start-content">
     <h1 class="start-title">БАЛАНС</h1>
     <p class="start-subtitle">3D-симулятор энергосистемы региона</p>
-    <p class="start-desc">Вы — главный инженер. 5 лет. Цель — снизить энергоёмкость на 30%. Не забывайте о людях.</p>
+    <p class="start-desc">Вы — главный инженер. 30 ходов. Цель — снизить энергоёмкость на 30%. Не забывайте о людях.</p>
     <div class="start-buttons">
       <button id="btnStart" class="btn-start">Начать</button>
-      <button id="btnReset" class="btn-reset hidden">Сбросить прогресс</button>
     </div>
   </div>
 </div>
@@ -206,16 +203,16 @@ button{font-family:inherit;cursor:pointer}
       <div class="stat" id="heatStat">
         <div class="stat-head"><span class="stat-icon">🧡</span><span class="stat-label">Люди</span><span class="stat-value" id="heatValue">100</span></div>
         <div class="stat-bar"><div class="stat-bar-fill" id="heatBar" style="width:100%"></div></div>
-        <div class="stat-hint">доверие — ниже 25 = провал</div>
+        <div class="stat-hint">доверие — ниже 35 = провал</div>
       </div>
       <div class="stat" id="energyStat">
         <div class="stat-head"><span class="stat-icon">📉</span><span class="stat-label">Энергоёмкость</span><span class="stat-value" id="energyValue">100</span></div>
         <div class="stat-bar"><div class="stat-bar-fill" id="energyBar" style="width:0%;background:var(--cold)"></div><div class="stat-bar-goal"></div></div>
-        <div class="stat-hint">цель ≤ 70 к 20-му ходу</div>
+        <div class="stat-hint">цель ≤ 70 к 30-му ходу</div>
       </div>
     </div>
     <div class="top-right">
-      <div class="day-info" id="dayInfo">День 1/20</div>
+      <div class="day-info" id="dayInfo">День 1/30</div>
       <div class="year-info" id="yearInfo">Год 1, Весна</div>
     </div>
   </header>
@@ -241,44 +238,43 @@ button{font-family:inherit;cursor:pointer}
 <div id="tooltip" class="tooltip hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 'use strict';
 
-const SAVE_KEY = 'balans3d_save_v3';
+const SAVE_KEY = 'balans3d_save_v5';
 const SEASON_NAMES = ['Весна','Лето','Осень','Зима'];
 const SEASON_ORDER = ['spring','summer','autumn','winter'];
 
 // ============================================================
-// ДАННЫЕ ОБЪЕКТОВ (Обновлённые позиции)
+// ДАННЫЕ ОБЪЕКТОВ (Котельная №3 удалена)
 // ============================================================
 const OBJECTS_INITIAL = [
-  // Верхний ряд (Z = -5)
-  {id:'tec',type:'source',name:'ТЭЦ',icon:'🏭',pos:[-9,0,-5],loss:55,repairCost:30,repairEffect:12,repairHeatImpact:-3,buildOptions:[],causeText:'Изношенные теплообменники и отсутствие изоляции.',factId:'fact_tec'},
-  {id:'boiler1',type:'source',name:'Котельная №1',icon:'🔥',pos:[-3,0,-5],loss:40,repairCost:20,repairEffect:8,repairHeatImpact:-2,buildOptions:[],causeText:'Устаревшие горелки, низкий КПД.',factId:'fact_boiler1'},
-  {id:'boiler2',type:'source',name:'Котельная №2',icon:'🔥',pos:[3,0,-5],loss:35,repairCost:20,repairEffect:8,repairHeatImpact:-2,buildOptions:[],causeText:'Накипь в трубах, потеря давления.',factId:'fact_boiler2'},
-  {id:'boiler3',type:'source',name:'Котельная №3',icon:'🔥',pos:[9,0,-5],loss:30,repairCost:18,repairEffect:7,repairHeatImpact:-1,buildOptions:[],causeText:'Отсутствие автоматики регулирования.',factId:'fact_boiler3'},
+  // Ряд 1 (Z = -16)
+  {id:'les',type:'potential',name:'Лесхоз',icon:'🌲',pos:[-16,0,-16],loss:5,repairCost:0,repairEffect:0,repairHeatImpact:0,buildOptions:['build_wood_chips','build_solar'],causeText:'Щепа не используется как топливо.',factId:'fact_les'},
+  {id:'tec',type:'source',name:'ТЭЦ',icon:'🏭',pos:[-8,0,-16],loss:55,repairCost:30,repairEffect:12,repairHeatImpact:-3,buildOptions:[],causeText:'Изношенные теплообменники и отсутствие изоляции.',factId:'fact_tec'},
+  {id:'boiler1',type:'source',name:'Котельная №1',icon:'🔥',pos:[0,0,-16],loss:40,repairCost:20,repairEffect:8,repairHeatImpact:-2,buildOptions:[],causeText:'Устаревшие горелки, низкий КПД.',factId:'fact_boiler1'},
+  {id:'boiler2',type:'source',name:'Котельная №2',icon:'🔥',pos:[8,0,-16],loss:35,repairCost:20,repairEffect:8,repairHeatImpact:-2,buildOptions:[],causeText:'Накипь в трубах, потеря давления.',factId:'fact_boiler2'},
   
-  // Средний ряд (Z = 1)
-  {id:'substation_a',type:'transit',name:'Подстанция А',icon:'⚡',pos:[-9,0,1],loss:20,repairCost:15,repairEffect:6,repairHeatImpact:0,buildOptions:[],causeText:'Устаревшие трансформаторы, перегрузка.',factId:'fact_sub_a'},
-  {id:'substation_b',type:'transit',name:'Подстанция Б',icon:'⚡',pos:[-3,0,1],loss:25,repairCost:18,repairEffect:7,repairHeatImpact:0,buildOptions:[],causeText:'Нет компенсации реактивной мощности.',factId:'fact_sub_b'},
-  {id:'substation_v',type:'transit',name:'Подстанция В',icon:'⚡',pos:[3,0,1],loss:15,repairCost:12,repairEffect:5,repairHeatImpact:0,buildOptions:[],causeText:'Плохой контакт на линиях.',factId:'fact_sub_v'},
-  {id:'substation_g',type:'transit',name:'Подстанция Г',icon:'⚡',pos:[9,0,1],loss:18,repairCost:15,repairEffect:6,repairHeatImpact:0,buildOptions:[],causeText:'Старые изоляторы.',factId:'fact_sub_g'},
+  // Ряд 2 (Z = -8)
+  {id:'substation_a',type:'transit',name:'Подстанция А',icon:'⚡',pos:[-16,0,-8],loss:20,repairCost:15,repairEffect:6,repairHeatImpact:0,buildOptions:[],causeText:'Устаревшие трансформаторы, перегрузка.',factId:'fact_sub_a'},
+  {id:'shop',type:'consumer',name:'Магазин',icon:'🛒',pos:[-8,0,-8],loss:15,repairCost:10,repairEffect:4,repairHeatImpact:4,buildOptions:[],causeText:'Старые холодильные витрины тратят много энергии.',factId:'fact_shop'},
+  {id:'hospital',type:'consumer',name:'Больница',icon:'🏥',pos:[0,0,-8],loss:28,repairCost:20,repairEffect:7,repairHeatImpact:8,buildOptions:['build_insulation'],causeText:'Изношенная вентиляция и старые окна.',factId:'fact_hospital'},
+  {id:'promzone',type:'consumer',name:'Промзона',icon:'🏗',pos:[8,0,-8],loss:45,repairCost:35,repairEffect:10,repairHeatImpact:0,buildOptions:['build_smart_meter_industrial'],causeText:'Заводы работают на холостом ходу, освещение не выключается.',factId:'fact_prom'},
+  {id:'agro',type:'potential',name:'Агрокомплекс',icon:'🚜',pos:[16,0,-8],loss:10,repairCost:8,repairEffect:2,repairHeatImpact:0,buildOptions:['build_biogas'],causeText:'Биогаз не используется — газ уходит в атмосферу.',factId:'fact_agro'},
   
-  // Нижний ряд (Z = 7)
-  {id:'res1',type:'consumer',name:'Жилмассив №1',icon:'🏢',pos:[-9,0,7],loss:25,repairCost:15,repairEffect:5,repairHeatImpact:5,buildOptions:['build_insulation'],causeText:'Утепление домов плохое, люди топят сильнее.',factId:'fact_res1'},
-  {id:'res2',type:'consumer',name:'Жилмассив №2',icon:'🏢',pos:[-3,0,7],loss:22,repairCost:15,repairEffect:5,repairHeatImpact:5,buildOptions:['build_insulation'],causeText:'Старые окна, сквозняки.',factId:'fact_res2'},
-  {id:'res3',type:'consumer',name:'Жилмассив №3',icon:'🏢',pos:[3,0,7],loss:20,repairCost:12,repairEffect:4,repairHeatImpact:4,buildOptions:[],causeText:'Двери в подъездах не закрываются.',factId:'fact_res3'},
-  {id:'promzone',type:'consumer',name:'Промзона',icon:'🏗',pos:[9,0,7],loss:45,repairCost:35,repairEffect:10,repairHeatImpact:0,buildOptions:['build_smart_meter_industrial'],causeText:'Заводы работают на холостом ходу, освещение не выключается.',factId:'fact_prom'},
+  // Ряд 3 (Z = 0)
+  {id:'res1',type:'consumer',name:'Жилмассив №1',icon:'🏢',pos:[-16,0,0],loss:25,repairCost:15,repairEffect:5,repairHeatImpact:5,buildOptions:['build_insulation'],causeText:'Утепление домов плохое, люди топят сильнее.',factId:'fact_res1'},
+  {id:'res2',type:'consumer',name:'Жилмассив №2',icon:'🏢',pos:[-8,0,0],loss:22,repairCost:15,repairEffect:5,repairHeatImpact:5,buildOptions:['build_insulation'],causeText:'Старые окна, сквозняки.',factId:'fact_res2'},
+  {id:'res3',type:'consumer',name:'Жилмассив №3',icon:'🏢',pos:[0,0,0],loss:20,repairCost:12,repairEffect:4,repairHeatImpact:4,buildOptions:[],causeText:'Двери в подъездах не закрываются.',factId:'fact_res3'},
+  {id:'res4',type:'consumer',name:'Жилмассив №4',icon:'🏢',pos:[8,0,0],loss:18,repairCost:12,repairEffect:4,repairHeatImpact:4,buildOptions:[],causeText:'Нет счётчиков — никто не видит расход.',factId:'fact_res4'},
+  {id:'res5',type:'consumer',name:'Жилмассив №5',icon:'🏢',pos:[16,0,0],loss:15,repairCost:10,repairEffect:3,repairHeatImpact:3,buildOptions:[],causeText:'Освещение в подъездах горит круглосуточно.',factId:'fact_res5'},
   
-  // Самый нижний ряд (Z = 13)
-  {id:'res4',type:'consumer',name:'Жилмассив №4',icon:'🏢',pos:[-9,0,13],loss:18,repairCost:12,repairEffect:4,repairHeatImpact:4,buildOptions:[],causeText:'Нет счётчиков — никто не видит расход.',factId:'fact_res4'},
-  {id:'school',type:'consumer',name:'Школа',icon:'🏫',pos:[-3,0,13],loss:22,repairCost:14,repairEffect:5,repairHeatImpact:6,buildOptions:['build_insulation'],causeText:'Старые окна и сквозняки. Дети мёрзнут на уроках.',factId:'fact_school'},
-  {id:'res5',type:'consumer',name:'Жилмассив №5',icon:'🏢',pos:[3,0,13],loss:15,repairCost:10,repairEffect:3,repairHeatImpact:3,buildOptions:[],causeText:'Освещение в подъездах горит круглосуточно.',factId:'fact_res5'},
+  // Ряд 4 (Z = 8)
+  {id:'school',type:'consumer',name:'Школа',icon:'🏫',pos:[-16,0,8],loss:22,repairCost:14,repairEffect:5,repairHeatImpact:6,buildOptions:['build_insulation'],causeText:'Старые окна и сквозняки. Дети мёрзнут на уроках.',factId:'fact_school'},
   
-  // Вынесенные объекты (за городом)
-  {id:'les',type:'potential',name:'Лесхоз',icon:'🌲',pos:[-15,0,-11],loss:5,repairCost:0,repairEffect:0,repairHeatImpact:0,buildOptions:['build_wood_chips','build_solar'],causeText:'Щепа не используется как топливо.',factId:'fact_les'},
-  {id:'agro',type:'potential',name:'Агрокомплекс',icon:'🚜',pos:[15,0,-11],loss:10,repairCost:8,repairEffect:2,repairHeatImpact:0,buildOptions:['build_biogas'],causeText:'Биогаз не используется — газ уходит в атмосферу.',factId:'fact_agro'},
-  {id:'dump',type:'potential',name:'Свалка',icon:'🗑',pos:[15,0,13],loss:0,repairCost:0,repairEffect:0,repairHeatImpact:0,buildOptions:['build_sorting'],causeText:'Мусор не сортируется — вторичное сырьё теряется.',factId:'fact_dump'}
+  // Ряд 5 (Z = 16) - Свалка далеко от школы
+  {id:'dump',type:'potential',name:'Свалка',icon:'🗑',pos:[16,0,16],loss:0,repairCost:0,repairEffect:0,repairHeatImpact:0,buildOptions:['build_sorting'],causeText:'Мусор не сортируется — вторичное сырьё теряется.',factId:'fact_dump'}
 ];
 const BASELINE_LOSS = OBJECTS_INITIAL.reduce((s,o)=>s+o.loss,0);
 
@@ -293,22 +289,20 @@ const BUILDS = {
 
 const ENCYCLOPEDIA = {
   fact_kwh:{title:'Что такое кВт·ч',text:'Киловатт-час — единица энергии. 100 Вт лампочка за 10 часов = 1 кВт·ч.',source:'Белэнерго, 2023'},
-  fact_sub:{title:'Зачем нужны подстанции?',text:'Подстанции распределяют энергию от крупных источников (ТЭЦ) к потребителям. Они преобразуют напряжение, чтобы энергия доходила до домов и заводов с минимальными потерями. Без подстанций сеть бы не выдержала.',source:'Минэнерго РБ'},
-  fact_tec:{title:'Потери в теплосетях',text:'В старых сетях теряется до 40% тепла по пути к потребителю. Изоляция труб — самая дешёвая энергия.',source:'Минэнерго РБ'},
-  fact_sub_a:{title:'БелАЭС и электроотопление',text:'БелАЭС даёт избыток электроэнергии. Электроотопление дешевле газа, но требует модернизации сетей.',source:'Белэнерго, 2024'},
-  fact_sub_b:{title:'Реактивная мощность',text:'Реактивная мощность «гуляет» по сетям, не выполняя полезной работы. Компенсаторы возвращают её.',source:'Учебник ТОЭ'},
+  fact_sub:{title:'Зачем нужны подстанции?',text:'Подстанции распределяют энергию от крупных источников (ТЭЦ) к потребителям. Без подстанций сеть бы не выдержала.',source:'Минэнерго РБ'},
+  fact_tec:{title:'Потери в теплосетях',text:'В старых сетях теряется до 40% тепла по пути к потребителю.',source:'Минэнерго РБ'},
+  fact_sub_a:{title:'БелАЭС и электроотопление',text:'БелАЭС даёт избыток электроэнергии. Электроотопление дешевле газа.',source:'Белэнерго, 2024'},
   fact_boiler1:{title:'КПД котлов',text:'Старые газовые котлы имеют КПД 70–80%. Современные — 92–95%.',source:'Минэнерго РБ'},
   fact_boiler2:{title:'Накипь в трубах',text:'Слой накипи 1 мм увеличивает расход топлива на 5–8%.',source:'Теплотехника'},
-  fact_boiler3:{title:'Автоматика',text:'Погодозависимая автоматика снижает расход газа на 15–20%.',source:'Минэнерго РБ'},
-  fact_sub_v:{title:'Потери на контактах',text:'Плохой контакт = локальный нагрев = потери. Обслуживание соединений — самое дешёвое.',source:'ПУЭ'},
-  fact_sub_g:{title:'Изоляторы',text:'Загрязнённые изоляторы теряют до 10% энергии на утечку.',source:'Белэнерго'},
   fact_prom:{title:'Холостой ход',text:'Работа оборудования «на холостом ходу» тратит до 30% энергии впустую.',source:'IEA, 2023'},
   fact_res1:{title:'Утепление домов',text:'Тёплый дом снижает расход на отопление на 20–40%.',source:'ЖКХ РБ'},
   fact_res2:{title:'Окна и сквозняки',text:'Замена окон — 15% экономии на отоплении.',source:'ЖКХ РБ'},
   fact_res3:{title:'Двери подъездов',text:'Незакрытая дверь = потеря 5–10% тепла за зиму.',source:'ЖКХ РБ'},
-  fact_res4:{title:'Счётчик как инструмент',text:'Счётчик не экономит энергию сам. Но он показывает, куда она уходит.',source:'IEA, 2023'},
+  fact_res4:{title:'Счётчик как инструмент',text:'Счётчик показывает, куда уходит энергия.',source:'IEA, 2023'},
   fact_res5:{title:'Освещение в подъездах',text:'Круглосуточное освещение = 3–5% потребления дома.',source:'ЖКХ РБ'},
   fact_school:{title:'Школы и энергия',text:'Школы — это 4% потребления бюджета района. Тёплый класс = лучше учёба.',source:'Минобразования РБ'},
+  fact_shop:{title:'Энергия в торговле',text:'Холодильники в магазинах — одни из главных потребителей энергии. Закрытые витрины экономят до 20%.',source:'Минторг'},
+  fact_hospital:{title:'Больницы и микроклимат',text:'В больницах нельзя просто отключить отопление. Нужна умная вентиляция.',source:'Минздрав'},
   fact_agro:{title:'Биогаз',text:'Из навоза получают биогаз — метан, который раньше уходил в воздух.',source:'Институт энергетики'},
   fact_les:{title:'Щепа',text:'Древесная щепа — местное топливо из отходов лесхоза.',source:'Белэнерго'},
   fact_dump:{title:'Сортировка',text:'Из тонны мусора можно получить 200–300 кг вторсырья.',source:'IEA, 2023'},
@@ -332,27 +326,27 @@ const LETTERS = {
   2:{portrait:'👩‍🏫',text:'«Здравствуйте. В школе отключили горячую воду — экономим. Дети мёрзнут на уроках. Мы понимаем, что это нужно, но можно как-то иначе?»',sign:'Учительница',effect:s=>{if(s.heatForPeople<60){s.heatForPeople=Math.max(0,s.heatForPeople-3)}else{s.heatForPeople=Math.min(100,s.heatForPeople+2)}}},
   4:{portrait:'👨‍🌾',text:'«У меня на ферме газ уходит в воздух. Говорят, из него можно делать биогаз. Может, попробуем?»',sign:'Фермер',effect:s=>{unlockFact('fact_agro');if(s.heatForPeople>=80)s.heatForPeople=Math.min(100,s.heatForPeople+2)}},
   5:{portrait:'👵',text:'«Внучок, у нас в подъезде свет горит днём и ночью. Может, счётчик поставить?»',sign:'Пенсионерка',effect:s=>{s.heatForPeople=Math.min(100,s.heatForPeople+(s.flags.metersInstalled>=2?5:2))}},
-  7:{portrait:'👩‍⚕️',text:'«В поликлинике холодно. Но я вижу, что вы чините сети. Держитесь.»',sign:'Врач',effect:s=>{if(s.energyIntensity<90)s.heatForPeople=Math.min(100,s.heatForPeople+5)}},
+  7:{portrait:'👩‍⚕️',text:'«В больнице холодно. Пациенты жалуются. Но я вижу, что вы чините сети. Держитесь.»',sign:'Врач',effect:s=>{if(s.energyIntensity<90)s.heatForPeople=Math.min(100,s.heatForPeople+5)}},
   9:{portrait:'🧑',text:'«Я читал про БелАЭС. Почему у нас избыток энергии, а батареи холодные?»',sign:'Подросток',effect:s=>{unlockFact('fact_sub_a')}},
   11:{portrait:'👩',text:'«У нас во дворе теперь тепло! Спасибо. Я даже стала выключать свет, когда выхожу.»',sign:'Соседка Зинаида',effect:s=>{if(s.heatForPeople>=70)s.heatForPeople=Math.min(100,s.heatForPeople+5);else s.heatForPeople=Math.max(0,s.heatForPeople-3)}},
   13:{portrait:'🧑‍💼',text:'«Мы готовы поставить умные счётчики. Но это стоит денег. Поможете?»',sign:'Директор завода',effect:s=>{unlockFact('fact_smart_meter')}},
   15:{portrait:'👵',text:'«Внучок, я поставила счётчик. Теперь вижу, куда уходит. Оказывается, старый холодильник берёт в 2 раза больше нового.»',sign:'Бабушка',effect:s=>{s.heatForPeople=Math.min(100,s.heatForPeople+5);unlockFact('fact_meter')}},
   17:{portrait:'👩‍🏫',text:'«У нас в школе теперь тепло. Дети стали лучше учиться. Спасибо.»',sign:'Учительница',effect:s=>{if(s.energyIntensity<=75)s.heatForPeople=Math.min(100,s.heatForPeople+8)}},
-  19:{portrait:'👥',text:'«Мы видим, что вы делаете. Спасибо.»',sign:'Жители района',effect:s=>{if(s.heatForPeople>=80)s.heatForPeople=Math.min(100,s.heatForPeople+2)}}
+  19:{portrait:'👥',text:'«Мы видим, что вы делаете. Спасибо.»',sign:'Жители района',effect:s=>{if(s.heatForPeople>=80)s.heatForPeople=Math.min(100,s.heatForPeople+2)}},
+  21:{portrait:'👨‍🔧',text:'«Я работаю на ТЭЦ. Вижу, как вы стараетесь. Но трубы старые, все руки обжигаем. Спасибо за ремонт, если он будет.»',sign:'Слесарь ТЭЦ',effect:s=>{s.heatForPeople=Math.min(100,s.heatForPeople+4)}},
+  23:{portrait:'👩‍💻',text:'«Я установила умный счётчик через приложение. Теперь вижу, что обогреватель берёт больше всего. Стала выключать. Счёт стал меньше!»',sign:'Айтишница',effect:s=>{if(s.flags.metersInstalled>=3)s.heatForPeople=Math.min(100,s.heatForPeople+6);else s.heatForPeople=Math.min(100,s.heatForPeople+2)}},
+  25:{portrait:'👴',text:'«Раньше ворчал на вас, а теперь вижу — тепло. Батареи горячие. Спасибо, сынок.»',sign:'Дедушка Николай',effect:s=>{if(s.heatForPeople>=60)s.heatForPeople=Math.min(100,s.heatForPeople+5)}},
+  27:{portrait:'👩‍🏫',text:'«Мы с детьми посадили деревья у школы. И повесили плакаты про энергосбережение. Вы нас вдохновили.»',sign:'Учительница',effect:s=>{if(s.energyIntensity<=80)s.heatForPeople=Math.min(100,s.heatForPeople+8)}},
+  29:{portrait:'👥',text:'«Мы видим финал. Вы справились. Спасибо за этот район.»',sign:'Жители',effect:s=>{s.heatForPeople=Math.min(100,s.heatForPeople+10)}}
 };
 
-// ============================================================
-// ДИАЛОГИ (с учётом выполненных просьб)
-// ============================================================
 const DIALOGS = {
-  tec:{portrait:'🧑‍🔧',name:'Главный инженер ТЭЦ',text:'Вы знаете, что у нас 55% тепла уходит в воздух? Мне стыдно, но бюджета на ремонт нет. Если найдёте — сделаем.',replies:[{text:'Мы работаем над этим. Крепитесь.',heat:5},{text:'Уже выделили средства. Начинаем.',heat:8}]},
+  tec:{portrait:'🧑‍🔧',name:'Главный инженер ТЭЦ',text:'У нас 55% тепла уходит в воздух. Мне стыдно, но бюджета на ремонт нет. Если найдёте — сделаем.',replies:[{text:'Мы работаем над этим. Крепитесь.',heat:5},{text:'Уже выделили средства. Начинаем.',heat:8}]},
   boiler1:{portrait:'👨‍🏭',name:'Мастер котельной',text:'Горелки ещё с 80-х. Работают — и ладно, говорят. А я вижу, сколько газа в трубу улетает.',replies:[{text:'Понимаю. Скоро заменим.',heat:5},{text:'Давайте вместе думать, как экономить.',heat:7}]},
   boiler2:{portrait:'👷',name:'Слесарь',text:'Накипь в трубах — миллиметр за год. Раз в сезон чистить надо бы. Только кто ж даст.',replies:[{text:'Дадим. Приоритет — котельные.',heat:6},{text:'Записал в план на этот год.',heat:4}]},
-  boiler3:{portrait:'🧑‍🔧',name:'Оператор',text:'Автоматики нет. Крутим вентили руками, как в каменном веке.',replies:[{text:'Автоматику поставим — будет проще.',heat:5},{text:'Держитесь, скоро модернизация.',heat:3}]},
   substation_a:{portrait:'⚡',name:'Электрик',text:'Трансформаторы старые, перегружены. Каждый вечер — как на пороховой бочке.',replies:[{text:'Заменим, как только сможем.',heat:5},{text:'Что нужно в первую очередь?',heat:4}]},
-  substation_b:{portrait:'🔧',name:'Диспетчер',text:'Реактивная мощность гуляет по сетям. Компенсаторы поставим — сразу легче станет.',replies:[{text:'Планируем установку.',heat:6},{text:'Что посоветуете?',heat:4}]},
-  substation_v:{portrait:'🔌',name:'Монтёр',text:'Контакты подгорают. Раз в месяц чистить — и всё. А у нас — раз в год.',replies:[{text:'Увеличим частоту обслуживания.',heat:5},{text:'Это недорого. Сделаем.',heat:4}]},
-  substation_g:{portrait:'⚡',name:'Энергетик',text:'Изоляторы грязные. Утечка. Сами понимаете.',replies:[{text:'Промоем в этом сезоне.',heat:5},{text:'Спасибо, что следите.',heat:3}]},
+  shop:{portrait:'👩‍🛒',name:'Продавщица',text:'Холодильники старые, продукты портятся, а счёт за свет огромный. Помогите, пожалуйста.',replies:[{text:'Поставим энергоэффективные витрины.',heat:6},{text:'Держитесь, решим этот вопрос.',heat:4}]},
+  hospital:{portrait:'👩‍⚕️',name:'Главврач',text:'В палатах сквозняки. Пациенты простывают ещё сильнее. Это же больница, тут должно быть тепло.',replies:[{text:'Здоровье людей — приоритет. Утеплим.',heat:8},{text:'Поставим счётчик и найдём утечки.',heat:6}]},
   promzone:{portrait:'🧑‍💼',name:'Директор завода',text:'Оборудование на холостом ходу. Выключать — лень. Счётчики поставить — сразу видно, где утечка.',replies:[{text:'Давайте поставим счётчики.',heat:6},{text:'Подумайте о модернизации.',heat:4}]},
   res1:{portrait:'👩',name:'Мария Петровна',text:'У нас в подъезде опять холодно. Внуки мёрзнут. Когда почините?',replies:[{text:'Работаем. Скоро будет тепло.',heat:6},{text:'Давайте поставим счётчик — увидите, куда уходит.',heat:4}]},
   res2:{portrait:'👴',name:'Пенсионер Иван',text:'Старые окна. Сквозняки. Утеплять — денег нет. Хоть бы помогли.',replies:[{text:'Программа утепления — в этом году.',heat:6},{text:'Держитесь, всё будет.',heat:3}]},
@@ -375,17 +369,14 @@ const ENDINGS = {
   fail_budget:{name:'КРЕДИТОРЫ',cls:'fail-budget',text:'Долг региона превысил критический. Кредиторы заморозили все проекты.',diary:'Денег нет. И тепла тоже. Так не должно было быть.'}
 };
 
-// ============================================================
-// СОБЫТИЯ (КРИЗИСЫ)
-// ============================================================
 const EVENTS = [
   {
     id: 'frost',
     title: '⚠️ Аномальные морозы',
     text: 'Ударили сильные морозы. Сети работают на пределе. Жители жалуются на холод, но резкое увеличение нагрузки может привести к авариям.',
     options: [
-      {text: 'Срочно увеличить подачу (Потери +5%, Тепло +10)', effect: s => { s.energyIntensity += 5; s.heatForPeople = Math.min(100, s.heatForPeople + 10); } },
-      {text: 'Провести разъяснительную работу (Тепло -5, Бюджет +10)', effect: s => { s.heatForPeople -= 5; s.budget += 10; } }
+      {text: 'Срочно увеличить подачу (Потери +8%, Тепло +10)', effect: s => { s.energyIntensity += 8; s.heatForPeople = Math.min(100, s.heatForPeople + 10); }, selfish: false},
+      {text: 'Разъяснительная работа (Тепло -10, Бюджет +10)', effect: s => { s.heatForPeople -= 10; s.budget += 10; }, selfish: true}
     ]
   },
   {
@@ -393,8 +384,8 @@ const EVENTS = [
     title: '⚡ Авария на подстанции',
     text: 'Из-за износа оборудования произошло короткое замыкание. Требуется срочное вмешательство.',
     options: [
-      {text: 'Выделить деньги на срочный ремонт (Бюджет -25)', effect: s => { s.budget -= 25; } },
-      {text: 'Сэкономить и отложить (Потери +8%)', effect: s => { s.energyIntensity += 8; } }
+      {text: 'Выделить деньги на ремонт (Бюджет -35)', effect: s => { s.budget -= 35; }, selfish: false},
+      {text: 'Отложить (Потери +12%)', effect: s => { s.energyIntensity += 12; }, selfish: true}
     ]
   },
   {
@@ -402,22 +393,28 @@ const EVENTS = [
     title: '📢 Недовольство жителей',
     text: 'Люди недовольны тарифами и холодом. Назревает митинг.',
     options: [
-      {text: 'Пойти на уступки и снизить тарифы (Бюджет -20, Тепло +5)', effect: s => { s.budget -= 20; s.heatForPeople = Math.min(100, s.heatForPeople+5); } },
-      {text: 'Игнорировать (Тепло -15)', effect: s => { s.heatForPeople -= 15; } }
+      {text: 'Снизить тарифы (Бюджет -25, Тепло +5)', effect: s => { s.budget -= 25; s.heatForPeople = Math.min(100, s.heatForPeople+5); }, selfish: false},
+      {text: 'Игнорировать (Тепло -20)', effect: s => { s.heatForPeople -= 20; }, selfish: true}
+    ]
+  },
+  {
+    id: 'grant',
+    title: '💰 Федеральный грант',
+    text: 'Регион выделил грант на энергосбережение. Как потратить?',
+    options: [
+      {text: 'На срочный ремонт (Бюджет +30)', effect: s => { s.budget += 30; }, selfish: true},
+      {text: 'На обучение персонала (Тепло +10, Потери -3%)', effect: s => { s.heatForPeople = Math.min(100, s.heatForPeople+10); s.energyIntensity = Math.max(40, s.energyIntensity-3); }, selfish: false}
     ]
   }
 ];
 
-// ============================================================
-// STATE
-// ============================================================
 function cloneObjects(){ return JSON.parse(JSON.stringify(OBJECTS_INITIAL)).map(o=>Object.assign(o,{studied:false,metered:false,talks:0,repaired:0,insulated:false})); }
 function createDefaultState(){
   return {
     turn:1,year:1,season:'spring',
     budget:150,attention:3,
     heatForPeople:100,energyIntensity:100,
-    flags:{creditsTaken:0,localGenerators:0,metersInstalled:0,neverDidNothing:true,warnedAboutHeat:false,tutorialDone:false,helpSeen:false},
+    flags:{creditsTaken:0,localGenerators:0,metersInstalled:0,neverDidNothing:true,warnedAboutHeat:false,tutorialDone:false,helpSeen:false,selfishness:0},
     objects:cloneObjects(),
     builds:{biogas:false,wood_chips:false,sorting:false,solar:false,smart_meter:false,insulation:0},
     pendingEffects:[],
@@ -436,22 +433,6 @@ const clamp = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const sleep = ms=>new Promise(r=>setTimeout(r,ms));
 
 function saveGame(){ try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch(e){} }
-function loadSave(){
-  try{
-    const raw = localStorage.getItem(SAVE_KEY);
-    if(!raw)return null;
-    const parsed = JSON.parse(raw);
-    const defaults = createDefaultState();
-    const merged = Object.assign(defaults,parsed);
-    merged.flags = Object.assign(defaults.flags,parsed.flags||{});
-    merged.ui = Object.assign(defaults.ui,parsed.ui||{});
-    merged.builds = Object.assign(defaults.builds,parsed.builds||{});
-    if(!Array.isArray(merged.objects)||merged.objects.length===0)merged.objects=cloneObjects();
-    if(!Array.isArray(merged.unlockedFacts))merged.unlockedFacts=['fact_kwh', 'fact_sub'];
-    if(!Array.isArray(merged.pendingEffects))merged.pendingEffects=[];
-    return merged;
-  }catch(e){return null}
-}
 function resetGame(){ try{localStorage.removeItem(SAVE_KEY)}catch(e){} state=createDefaultState(); }
 function unlockFact(id){ if(state.unlockedFacts.indexOf(id)<0)state.unlockedFacts.push(id); }
 
@@ -468,9 +449,6 @@ function recalcEnergyIntensity(){
   state.energyIntensity = clamp(base - bonus, 40, 100);
 }
 
-// ============================================================
-// ЗВУК
-// ============================================================
 let audioCtx = null;
 function getAudio(){ if(!audioCtx){ try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return null} } return audioCtx; }
 function playSound(type){
@@ -494,9 +472,9 @@ function playSound(type){
 }
 
 // ============================================================
-// THREE.JS
+// THREE.JS & CAMERA CONTROL
 // ============================================================
-let scene, camera, renderer, raycaster, clock;
+let scene, camera, renderer, raycaster, clock, controls;
 const mouse = new THREE.Vector2();
 const cityObjects = {};
 const selectionRing = {mesh:null, objId:null};
@@ -504,31 +482,42 @@ const activeAnimations = [];
 const people = [];
 const cars = [];
 
-const cam = {
-  currentPos: new THREE.Vector3(18,20,18),
-  targetPos: new THREE.Vector3(18,20,18),
-  currentLook: new THREE.Vector3(0,1,0),
-  targetLook: new THREE.Vector3(0,1,0),
-  mode: 'overview',
-  overviewAngle: 0
-};
+let camStartPos = new THREE.Vector3();
+let camStartLook = new THREE.Vector3();
+let targetPos = new THREE.Vector3(25, 30, 25);
+let targetLook = new THREE.Vector3(0, 1, 0);
+let isAnimatingCam = false;
+let camAnimTime = 0;
 
 const SEASON_COLORS = {
-  spring: {sky:0x4a5d7a, sun:0xffe0b0, ground:0x4a5c3a, fog:0x4a5d7a},
-  summer: {sky:0x2d4a6b, sun:0xfff0c0, ground:0x4a6c3a, fog:0x2d4a6b},
-  autumn: {sky:0x4a3a2a, sun:0xffc080, ground:0x6c4a2a, fog:0x4a3a2a},
-  winter: {sky:0x3a4a5a, sun:0xc0d0e0, ground:0xd0dce8, fog:0x3a4a5a}
+  spring: {sky:0x4a5d7a, sun:0xffe0b0, ground:0x4a5c3a, fog:0x6a8aa8}, // Fog matches sky bottom
+  summer: {sky:0x2d4a6b, sun:0xfff0c0, ground:0x4a6c3a, fog:0x6ab0e0},
+  autumn: {sky:0x4a3a2a, sun:0xffc080, ground:0x6c4a2a, fog:0x8a5030},
+  winter: {sky:0x3a4a5a, sun:0xc0d0e0, ground:0xd0dce8, fog:0x4a5a6a}
 };
+
+function createSkyTexture(topColor, bottomColor) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 2;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+  gradient.addColorStop(0, topColor);
+  gradient.addColorStop(1, bottomColor);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 2, 512);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
+}
 
 function initThree(){
   clock = new THREE.Clock();
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(SEASON_COLORS.spring.sky);
-  scene.fog = new THREE.Fog(SEASON_COLORS.spring.fog, 32, 85);
+  scene.fog = new THREE.Fog(SEASON_COLORS.spring.fog, 50, 140); // Increased far distance
 
   camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 200);
-  camera.position.copy(cam.currentPos);
-  camera.lookAt(cam.currentLook);
+  camera.position.copy(targetPos);
 
   renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -537,25 +526,47 @@ function initThree(){
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.appendChild(renderer.domElement);
 
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.maxPolarAngle = Math.PI / 2 - 0.05;
+  controls.minDistance = 10;
+  controls.maxDistance = 100;
+  controls.enablePan = false;
+  controls.autoRotate = false;
+  controls.target.set(0, 1, 0);
+
+  renderer.domElement.addEventListener('mousedown', () => { isAnimatingCam = false; });
+
   const hemi = new THREE.HemisphereLight(0x8899aa, 0x334455, 0.75);
   scene.add(hemi);
 
   const sun = new THREE.DirectionalLight(0xffe0b0, 1.2);
-  sun.position.set(20, 35, 15);
+  sun.position.set(30, 50, 20);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -35;
-  sun.shadow.camera.right = 35;
-  sun.shadow.camera.top = 35;
-  sun.shadow.camera.bottom = -35;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -45;
+  sun.shadow.camera.right = 45;
+  sun.shadow.camera.top = 45;
+  sun.shadow.camera.bottom = -45;
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 80;
+  sun.shadow.camera.far = 100;
   scene.add(sun);
   scene.userData.sun = sun;
   scene.userData.hemi = hemi;
 
-  // Земля
-  const groundGeo = new THREE.PlaneGeometry(120, 120);
+  // НЕБО
+  const skyGeo = new THREE.SphereGeometry(150, 32, 15);
+  const skyMat = new THREE.MeshBasicMaterial({
+    map: createSkyTexture('#2a3a5a', '#6a8aa8'), // Default spring
+    side: THREE.BackSide,
+    depthWrite: false
+  });
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  sky.name = 'sky';
+  scene.add(sky);
+
+  const groundGeo = new THREE.PlaneGeometry(160, 160);
   const groundMat = new THREE.MeshStandardMaterial({color:SEASON_COLORS.spring.ground, roughness:0.9});
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI/2;
@@ -566,7 +577,6 @@ function initThree(){
 
   raycaster = new THREE.Raycaster();
 
-  // Кольцо выбора
   const ringGeo = new THREE.RingGeometry(1.6, 2.2, 40);
   const ringMat = new THREE.MeshBasicMaterial({color:0xffd966, side:THREE.DoubleSide, transparent:true, opacity:0.85, depthWrite:false});
   selectionRing.mesh = new THREE.Mesh(ringGeo, ringMat);
@@ -575,12 +585,12 @@ function initThree(){
   selectionRing.mesh.visible = false;
   scene.add(selectionRing.mesh);
 
-  // СТРОИМ ГОРОД
   buildRoads();
   buildVegetation();
   buildDistantScenery();
   buildStreetLamps();
   buildCity();
+  buildDecorations();
   spawnPeople();
   spawnCars();
 
@@ -604,8 +614,8 @@ function getMat(key, color, opts){
 // ============================================================
 // ДОРОГИ И КВАРТАЛЫ
 // ============================================================
-const hRoads = [-8, -2, 4, 10];
-const vRoads = [-12, -6, 0, 6, 12];
+const hRoads = [-20, -12, -4, 4, 12, 20];
+const vRoads = [-20, -12, -4, 4, 12, 20];
 
 function buildRoads(){
   const roadMat = new THREE.MeshStandardMaterial({color:0x222228, roughness:0.95});
@@ -613,24 +623,23 @@ function buildRoads(){
   const grassMat = new THREE.MeshStandardMaterial({color:0x3a5a3a, roughness:1.0});
   const lineMat = new THREE.MeshBasicMaterial({color:0xe8d878, transparent:true, opacity:0.6});
 
-  // Дороги
   hRoads.forEach(z=>{
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(36, 1.6), roadMat);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(60, 2), roadMat);
     road.rotation.x = -Math.PI/2;
     road.position.set(0, 0.02, z);
     road.receiveShadow = true;
     scene.add(road);
     
-    [-0.85, 0.85].forEach(off=>{
-      const s = new THREE.Mesh(new THREE.BoxGeometry(36, 0.08, 0.15), sidewalkMat);
-      s.position.set(0, 0.04, z + off);
+    [-1.05, 1.05].forEach(off=>{
+      const s = new THREE.Mesh(new THREE.BoxGeometry(60, 0.1, 0.2), sidewalkMat);
+      s.position.set(0, 0.05, z + off);
       s.receiveShadow = true;
       scene.add(s);
     });
     
-    for(let x=-18; x<=18; x+=1.5){
-      if (vRoads.some(vx => Math.abs(x - vx) < 1.5)) continue;
-      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.08), lineMat);
+    for(let x=-30; x<=30; x+=2){
+      if (vRoads.some(vx => Math.abs(x - vx) < 2)) continue;
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1), lineMat);
       dash.rotation.x = -Math.PI/2;
       dash.position.set(x, 0.03, z);
       scene.add(dash);
@@ -638,60 +647,55 @@ function buildRoads(){
   });
 
   vRoads.forEach(x=>{
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 24), roadMat);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(2, 60), roadMat);
     road.rotation.x = -Math.PI/2;
-    road.position.set(x, 0.02, 1);
+    road.position.set(x, 0.02, 0);
     road.receiveShadow = true;
     scene.add(road);
     
-    [-0.85, 0.85].forEach(off=>{
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.08, 24), sidewalkMat);
-      s.position.set(x + off, 0.04, 1);
+    [-1.05, 1.05].forEach(off=>{
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 60), sidewalkMat);
+      s.position.set(x + off, 0.05, 0);
       s.receiveShadow = true;
       scene.add(s);
     });
     
-    for(let z=-12; z<=14; z+=1.5){
-      if (hRoads.some(hz => Math.abs(z - hz) < 1.5)) continue;
-      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.6), lineMat);
+    for(let z=-30; z<=30; z+=2){
+      if (hRoads.some(hz => Math.abs(z - hz) < 2)) continue;
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 1), lineMat);
       dash.rotation.x = -Math.PI/2;
       dash.position.set(x, 0.03, z);
       scene.add(dash);
     }
   });
 
-  // Перекрёстки (Зебры)
   function drawCrosswalk(cx, cz, isH) {
-      for(let i = -0.6; i <= 0.6; i += 0.3) {
-          const line = new THREE.Mesh(new THREE.PlaneGeometry(isH ? 0.15 : 0.8, isH ? 0.8 : 0.15), lineMat);
+      for(let i = -0.8; i <= 0.8; i += 0.4) {
+          const line = new THREE.Mesh(new THREE.PlaneGeometry(isH ? 0.2 : 1, isH ? 1 : 0.2), lineMat);
           line.rotation.x = -Math.PI/2;
-          line.position.set(cx + (isH ? i : 0), 0.035, cz + (isH ? 0 : i));
+          line.position.set(cx + (isH ? i : 0), 0.04, cz + (isH ? 0 : i));
           scene.add(line);
       }
   }
   hRoads.forEach(z => {
       vRoads.forEach(x => {
-          drawCrosswalk(x, z - 1.25, false);
-          drawCrosswalk(x, z + 1.25, false);
-          drawCrosswalk(x - 1.25, z, true);
-          drawCrosswalk(x + 1.25, z, true);
+          drawCrosswalk(x, z - 1.5, false);
+          drawCrosswalk(x, z + 1.5, false);
+          drawCrosswalk(x - 1.5, z, true);
+          drawCrosswalk(x + 1.5, z, true);
       });
   });
 
-  // Кварталы (блоки)
-  const blockX = [-9, -3, 3, 9];
-  const blockZ = [-5, 1, 7, 13];
+  const blockCenters = [-16, -8, 0, 8, 16];
   
-  blockX.forEach(x => {
-      blockZ.forEach(z => {
-          // Бетонная плита
-          const base = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), sidewalkMat);
+  blockCenters.forEach(x => {
+      blockCenters.forEach(z => {
+          const base = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.1, 6.8), sidewalkMat);
           base.position.set(x, 0.05, z);
           base.receiveShadow = true;
           scene.add(base);
-          // Трава внутри
-          const grass = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.11, 5.6), grassMat);
-          grass.position.set(x, 0.055, z);
+          const grass = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.11, 6.4), grassMat);
+          grass.position.set(x, 0.06, z);
           grass.receiveShadow = true;
           scene.add(grass);
       });
@@ -721,42 +725,30 @@ function makeTree(x, z, scale){
 }
 
 function buildVegetation(){
-  // Деревья по краям и в пустых кварталах
   const spots = [];
-  
-  // Периметр
-  for(let x=-20; x<=20; x+=2){
-    spots.push({x, z:-15 + Math.random()*1.5});
-    spots.push({x, z:18 + Math.random()*1.5});
+  for(let x=-30; x<=30; x+=2.5){
+    spots.push({x, z:-24 + Math.random()*2});
+    spots.push({x, z:24 + Math.random()*2});
   }
-  for(let z=-14; z<=17; z+=2){
-    spots.push({x:-20 + Math.random()*1.5, z});
-    spots.push({x:19 + Math.random()*1.5, z});
+  for(let z=-24; z<=24; z+=2.5){
+    spots.push({x:-24 + Math.random()*2, z});
+    spots.push({x:24 + Math.random()*2, z});
   }
-  
-  // Пустой квартал (9, 13)
-  for(let i=0; i<5; i++) {
-      spots.push({x: 9 + (Math.random()-0.5)*3, z: 13 + (Math.random()-0.5)*3});
-  }
-
   spots.forEach(s=>{
-    if(Math.random() < 0.9){
-      const tree = makeTree(s.x, s.z, 0.85 + Math.random()*0.4);
-      scene.add(tree);
-    }
+    const tree = makeTree(s.x, s.z, 0.85 + Math.random()*0.4);
+    scene.add(tree);
   });
 }
 
 function buildDistantScenery() {
-    // Горы на фоне
     const mountainMat = new THREE.MeshStandardMaterial({color: 0x2a3a4a, roughness: 0.9});
-    for(let i=0; i<40; i++) {
-        const angle = (i / 40) * Math.PI * 2;
-        const dist = 45 + Math.random() * 15;
+    for(let i=0; i<50; i++) {
+        const angle = (i / 50) * Math.PI * 2;
+        const dist = 60 + Math.random() * 20;
         const x = Math.cos(angle) * dist;
         const z = Math.sin(angle) * dist;
-        const h = 10 + Math.random() * 15;
-        const m = new THREE.Mesh(new THREE.ConeGeometry(8 + Math.random()*5, h, 5), mountainMat);
+        const h = 15 + Math.random() * 20;
+        const m = new THREE.Mesh(new THREE.ConeGeometry(10 + Math.random()*6, h, 5), mountainMat);
         m.position.set(x, h/2, z);
         m.rotation.y = Math.random() * Math.PI;
         scene.add(m);
@@ -766,8 +758,8 @@ function buildDistantScenery() {
 function buildStreetLamps(){
   const positions = [];
   hRoads.forEach(z=>{
-    for(let x=-15; x<=15; x+=7){
-      positions.push([x, z - 1.2]);
+    for(let x=-18; x<=18; x+=8){
+      positions.push([x, z - 1.5]);
     }
   });
   positions.forEach(([x, z])=>{
@@ -778,7 +770,7 @@ function buildStreetLamps(){
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({color:0xffe080}));
     head.position.y = 2.25;
     g.add(head);
-    const light = new THREE.PointLight(0xffd966, 0.4, 4);
+    const light = new THREE.PointLight(0xffd966, 0.4, 5);
     light.position.y = 2.25;
     g.add(light);
     g.position.set(x, 0, z);
@@ -805,7 +797,7 @@ function makeLabelSprite(name, icon){
   tex.minFilter = THREE.LinearFilter;
   const mat = new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true});
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(4.2, 1.26, 1);
+  sprite.scale.set(3.2, 0.96, 1); 
   sprite.renderOrder = 999;
   return sprite;
 }
@@ -864,22 +856,102 @@ function buildSubstation(){
   return g;
 }
 
-function buildResidential(){
+function buildShop(){
   const g = new THREE.Group();
-  for(let i=0;i<3;i++){
-    const h = 2.5 + Math.random()*1.2;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(1.1, h, 1.6), getMat('res_wall2', 0xb8a888));
-    b.position.set(-1.2 + i*1.2, h/2, 0); b.castShadow = true; b.receiveShadow = true; g.add(b);
-    const cols = 2, rows = Math.floor(h/0.7);
-    for(let r=0;r<rows;r++){
-      for(let c=0;c<cols;c++){
-        const w = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.28), new THREE.MeshBasicMaterial({color:0x3a3a3a}));
-        w.position.set(-1.2 + i*1.2 - 0.25 + c*0.5, 0.5 + r*0.65, 0.81);
+  const main = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2, 2.5), getMat('shop_wall', 0xd0a080));
+  main.position.y = 1; main.castShadow = true; main.receiveShadow = true; g.add(main);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.2, 2.7), getMat('shop_roof', 0x8a5050));
+  roof.position.y = 2.1; g.add(roof);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.2), new THREE.MeshBasicMaterial({color:0xaaddff, transparent:true, opacity:0.7}));
+  glass.position.set(0, 0.8, 1.26); g.add(glass);
+  return g;
+}
+
+function buildHospital(){
+  const g = new THREE.Group();
+  const main = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 3), getMat('hosp_wall', 0xeeeeee));
+  main.position.y = 1.5; main.castShadow = true; main.receiveShadow = true; g.add(main);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.25, 3.2), getMat('hosp_roof', 0xd45454));
+  roof.position.y = 3.1; g.add(roof);
+  for(let i=0;i<3;i++) {
+    for(let j=0;j<2;j++) {
+      const w = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.6), new THREE.MeshBasicMaterial({color:0x88ccff}));
+      w.position.set(-1 + i, 0.8 + j*1.2, 1.51); w.userData.isWindow = true; g.add(w);
+    }
+  }
+  const cross1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.1), new THREE.MeshBasicMaterial({color:0xff0000}));
+  cross1.position.set(0, 2.5, 1.55); g.add(cross1);
+  const cross2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.1), new THREE.MeshBasicMaterial({color:0xff0000}));
+  cross2.position.set(0, 2.5, 1.55); g.add(cross2);
+  return g;
+}
+
+function buildResidential(style){
+  const g = new THREE.Group();
+  const wallColor = [0xb8a888, 0xa89880, 0xc8b898, 0x988870, 0xd0c0a0][style % 5];
+  const roofColor = [0x6a4a3a, 0x5a3a2a, 0x7a5a4a, 0x4a2a1a, 0x8a6a5a][style % 5];
+  const winMat = new THREE.MeshBasicMaterial({color:0x3a3a3a});
+
+  if (style === 0) {
+    for(let i=0;i<3;i++){
+      const h = 2.5 + Math.random()*1.2;
+      const b = new THREE.Mesh(new THREE.BoxGeometry(1.4, h, 1.8), getMat('res_wall_'+style, wallColor));
+      b.position.set(-1.6 + i*1.6, h/2, 0); b.castShadow = true; b.receiveShadow = true; g.add(b);
+      for(let r=0;r<Math.floor(h/0.7);r++){
+        for(let c=0;c<2;c++){
+          const w = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 0.35), winMat);
+          w.position.set(-1.6 + i*1.6 - 0.3 + c*0.6, 0.5 + r*0.65, 0.91);
+          w.userData.isWindow = true; g.add(w);
+        }
+      }
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 1.9), getMat('res_roof_'+style, roofColor));
+      roof.position.set(-1.6 + i*1.6, h + 0.075, 0); g.add(roof);
+    }
+  } else if (style === 1) {
+    const h = 4.5;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(2.4, h, 2.4), getMat('res_wall_'+style, wallColor));
+    b.position.y = h/2; b.castShadow = true; b.receiveShadow = true; g.add(b);
+    for(let r=0;r<5;r++){
+      for(let c=0;c<3;c++){
+        const w = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), winMat);
+        w.position.set(-0.7 + c*0.7, 0.6 + r*0.8, 1.21);
         w.userData.isWindow = true; g.add(w);
       }
     }
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 1.7), getMat('res_roof2', 0x6a4a3a));
-    roof.position.set(-1.2 + i*1.2, h + 0.075, 0); g.add(roof);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.2, 2.5), getMat('res_roof_'+style, roofColor));
+    roof.position.y = h + 0.1; g.add(roof);
+  } else if (style === 2) {
+    const h = 3.0;
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(3.5, h, 1.6), getMat('res_wall_'+style, wallColor));
+    b1.position.set(0, h/2, -0.8); b1.castShadow = true; g.add(b1);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(1.6, h, 2.5), getMat('res_wall_'+style, wallColor));
+    b2.position.set(-0.95, h/2, 0.6); b2.castShadow = true; g.add(b2);
+    for(let i=0;i<3;i++) {
+       const w = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), winMat);
+       w.position.set(-0.9 + i*0.9, 1.5, 0.01); w.userData.isWindow = true; g.add(w);
+    }
+    const roof1 = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.15, 1.7), getMat('res_roof_'+style, roofColor));
+    roof1.position.set(0, h + 0.075, -0.8); g.add(roof1);
+    const roof2 = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.15, 2.6), getMat('res_roof_'+style, roofColor));
+    roof2.position.set(-0.95, h + 0.075, 0.6); g.add(roof2);
+  } else if (style === 3) {
+    const h = 3.5;
+    for(let i=0;i<2;i++){
+      const b = new THREE.Mesh(new THREE.BoxGeometry(1.4, h, 1.8), getMat('res_wall_'+style, wallColor));
+      b.position.set(-1 + i*2, h/2, 0); b.castShadow = true; g.add(b);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 1.9), getMat('res_roof_'+style, roofColor));
+      roof.position.set(-1 + i*2, h + 0.075, 0); g.add(roof);
+    }
+  } else {
+    const h = 2.0;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(4.5, h, 1.6), getMat('res_wall_'+style, wallColor));
+    b.position.y = h/2; b.castShadow = true; g.add(b);
+    for(let i=0;i<4;i++) {
+       const w = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.5), winMat);
+       w.position.set(-1.5 + i*1.0, 1.0, 0.81); w.userData.isWindow = true; g.add(w);
+    }
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.15, 1.7), getMat('res_roof_'+style, roofColor));
+    roof.position.y = h + 0.075; g.add(roof);
   }
   return g;
 }
@@ -897,19 +969,10 @@ function buildSchool(){
       win.userData.isWindow = true; g.add(win);
     }
   }
-  const door = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.9), new THREE.MeshBasicMaterial({color:0x5a3020}));
-  door.position.set(0, 0.45, 1.21); g.add(door);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 3.2, 6), getMat('school_pole', 0x888888, {metalness:0.7}));
   pole.position.set(1.8, 1.6, 0.8); g.add(pole);
   const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), new THREE.MeshBasicMaterial({color:0xd45454, side:THREE.DoubleSide}));
   flag.position.set(2.15, 2.9, 0.8); g.add(flag);
-  const field = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.8), new THREE.MeshStandardMaterial({color:0x4a7a4a, roughness:0.95}));
-  field.rotation.x = -Math.PI/2; field.position.set(-3.0, 0.06, 0.5); g.add(field);
-  const lineMat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.5});
-  for(let i=0;i<2;i++){
-    const line = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.05), lineMat);
-    line.rotation.x = -Math.PI/2; line.position.set(-3.0, 0.07, 0.5 + (i-0.5)*0.9); g.add(line);
-  }
   return g;
 }
 
@@ -967,6 +1030,71 @@ function buildDump(){
   return g;
 }
 
+// ДЕКОРАЦИИ ДЛЯ ПУСТЫХ МЕСТ
+function buildDummyHouse(x, z, colorIdx) {
+  const g = new THREE.Group();
+  const w = 2 + Math.random()*1.5;
+  const h = 1.5 + Math.random()*1.5;
+  const d = 2 + Math.random()*1.5;
+  const col = [0x9a9a8a, 0x8a8a7a, 0xb0a090, 0x7a7a6a][colorIdx%4];
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), getMat('dummy_wall'+colorIdx, col));
+  b.position.y = h/2; b.castShadow = true; b.receiveShadow = true; g.add(b);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.8, 1, 4), getMat('dummy_roof'+colorIdx, 0x4a3a2a));
+  roof.rotation.y = Math.PI/4; roof.position.y = h + 0.5; g.add(roof);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function buildPark(x, z) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  const grass = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.12, 16), getMat('park_grass', 0x4a8a4a));
+  grass.position.y = 0.06; grass.receiveShadow = true; g.add(grass);
+  for(let i=0; i<3; i++){
+    const tree = makeTree((Math.random()-0.5)*3, (Math.random()-0.5)*3, 0.8);
+    g.add(tree);
+  }
+  for(let i=0; i<2; i++){
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.3), getMat('bench', 0x6a4a2a));
+    bench.position.set((Math.random()-0.5)*3, 0.3, (Math.random()-0.5)*3);
+    g.add(bench);
+  }
+  return g;
+}
+
+function buildFountain(x, z) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.2, 0.4, 16), getMat('fountain_base', 0xaaaaaa));
+  base.position.y = 0.2; base.receiveShadow = true; g.add(base);
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 0.1, 16), new THREE.MeshStandardMaterial({color:0x5c8b9e, transparent:true, opacity:0.8}));
+  water.position.y = 0.4; g.add(water);
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 1.5, 8), getMat('fountain_pillar', 0x888888));
+  pillar.position.y = 1.15; pillar.castShadow = true; g.add(pillar);
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.4, 0.3, 12), getMat('fountain_bowl', 0xaaaaaa));
+  bowl.position.y = 1.95; g.add(bowl);
+  return g;
+}
+
+function buildDecorations() {
+  const occupied = state.objects.map(o => `${o.pos[0]},${o.pos[2]}`);
+  const blocks = [-16, -8, 0, 8, 16];
+  
+  blocks.forEach(x => {
+    blocks.forEach(z => {
+      if (!occupied.includes(`${x},${z}`)) {
+        if (x === 16 && z === -16) {
+          scene.add(buildFountain(x, z));
+        } else if (Math.random() > 0.5) {
+          scene.add(buildPark(x, z));
+        } else {
+          scene.add(buildDummyHouse(x, z, Math.floor(Math.random()*4)));
+        }
+      }
+    });
+  });
+}
+
 // ============================================================
 // ДЫМ
 // ============================================================
@@ -1020,10 +1148,15 @@ function buildCity(){
     switch(obj.id){
       case 'tec': group = buildTEC(); break;
       case 'boiler1': case 'boiler2': group = buildBoiler(1); break;
-      case 'boiler3': group = buildBoiler(0.9); break;
-      case 'substation_a': case 'substation_b': case 'substation_v': case 'substation_g': group = buildSubstation(); break;
+      case 'substation_a': group = buildSubstation(); break;
+      case 'shop': group = buildShop(); break;
+      case 'hospital': group = buildHospital(); break;
       case 'promzone': group = buildIndustrial(); break;
-      case 'res1': case 'res2': case 'res3': case 'res4': case 'res5': group = buildResidential(); break;
+      case 'res1': group = buildResidential(0); break;
+      case 'res2': group = buildResidential(1); break;
+      case 'res3': group = buildResidential(2); break;
+      case 'res4': group = buildResidential(3); break;
+      case 'res5': group = buildResidential(4); break;
       case 'school': group = buildSchool(); break;
       case 'agro': group = buildFarm(); break;
       case 'les': group = buildForest(); break;
@@ -1081,11 +1214,24 @@ function updateCityVisuals(){
     }
   });
 
+  // ОБНОВЛЕНИЕ НЕБА
+  const skyMesh = scene.getObjectByName('sky');
+  if(skyMesh){
+    let top, bottom;
+    if (state.season === 'spring') { top = '#2a3a5a'; bottom = '#6a8aa8'; }
+    else if (state.season === 'summer') { top = '#1a3a6a'; bottom = '#6ab0e0'; }
+    else if (state.season === 'autumn') { top = '#3a2010'; bottom = '#8a5030'; }
+    else if (state.season === 'winter') { top = '#1a2a3a'; bottom = '#4a5a6a'; }
+    
+    if (skyMesh.material.map) skyMesh.material.map.dispose();
+    skyMesh.material.map = createSkyTexture(top, bottom);
+    skyMesh.material.needsUpdate = true;
+  }
+
   const cols = SEASON_COLORS[state.season];
   if(scene.userData.sun){
     scene.userData.sun.color.setHex(cols.sun);
     scene.userData.hemi.color.setHex(cols.sky);
-    scene.background.setHex(cols.sky);
     scene.fog.color.setHex(cols.fog);
   }
   const groundMesh = scene.getObjectByName('ground');
@@ -1105,15 +1251,14 @@ class Person {
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshStandardMaterial({color:0xf0c080}));
     head.position.y = 0.54; head.castShadow = true; g.add(head);
     
-    // Спавн на тротуарах
     const axis = Math.random() < 0.5 ? 'x' : 'z';
     this.axis = axis;
     if(axis === 'x') {
-        this.fixed = hRoads[Math.floor(Math.random()*hRoads.length)] + 0.85;
-        this.pos = (Math.random()-0.5) * 28;
+        this.fixed = hRoads[Math.floor(Math.random()*hRoads.length)] + 1.05;
+        this.pos = (Math.random()-0.5) * 36;
     } else {
-        this.fixed = vRoads[Math.floor(Math.random()*vRoads.length)] + 0.85;
-        this.pos = -8 + Math.random()*20;
+        this.fixed = vRoads[Math.floor(Math.random()*vRoads.length)] + 1.05;
+        this.pos = (Math.random()-0.5) * 36;
     }
     g.position.set(axis==='x'?this.pos:this.fixed, 0, axis==='z'?this.pos:this.fixed);
     scene.add(g);
@@ -1125,11 +1270,11 @@ class Person {
   update(dt){
     this.pos += this.dir * this.speed * dt;
     if(this.axis === 'x'){
-      if(this.pos > 16 || this.pos < -16) this.dir *= -1;
+      if(this.pos > 25 || this.pos < -25) this.dir *= -1;
       this.mesh.position.x = this.pos;
       this.mesh.rotation.y = this.dir > 0 ? Math.PI/2 : -Math.PI/2;
     } else {
-      if(this.pos > 14 || this.pos < -10) this.dir *= -1;
+      if(this.pos > 25 || this.pos < -25) this.dir *= -1;
       this.mesh.position.z = this.pos;
       this.mesh.rotation.y = this.dir > 0 ? 0 : Math.PI;
     }
@@ -1137,7 +1282,7 @@ class Person {
   }
 }
 function spawnPeople(){
-  for(let i=0;i<20;i++) people.push(new Person());
+  for(let i=0;i<25;i++) people.push(new Person());
 }
 
 class Car {
@@ -1156,42 +1301,74 @@ class Car {
       wheel.position.set(-0.22 + (i%2)*0.44, 0.08, -0.2 + Math.floor(i/2)*0.4);
       g.add(wheel);
     }
-    const isX = Math.random() < 0.5;
-    this.axis = isX ? 'x' : 'z';
-    if(isX){
-      const roadZ = hRoads[Math.floor(Math.random()*hRoads.length)];
-      this.fixed = roadZ;
-      this.pos = (Math.random()-0.5) * 28;
-      g.position.set(this.pos, 0, roadZ);
-      this.dir = Math.random() < 0.5 ? 1 : -1;
-      g.rotation.y = this.dir > 0 ? 0 : Math.PI;
+    
+    this.axis = Math.random() < 0.5 ? 'x' : 'z';
+    this.dir = Math.random() < 0.5 ? 1 : -1;
+    if(this.axis === 'x'){
+      this.road = hRoads[Math.floor(Math.random()*hRoads.length)];
+      this.pos = (Math.random()-0.5) * 40;
     } else {
-      const roadX = vRoads[Math.floor(Math.random()*vRoads.length)];
-      this.fixed = roadX;
-      this.pos = -8 + Math.random()*20;
-      g.position.set(roadX, 0, this.pos);
-      this.dir = Math.random() < 0.5 ? 1 : -1;
-      g.rotation.y = this.dir > 0 ? -Math.PI/2 : Math.PI/2;
+      this.road = vRoads[Math.floor(Math.random()*vRoads.length)];
+      this.pos = (Math.random()-0.5) * 40;
     }
-    this.speed = 2 + Math.random()*2;
+    this.speed = 2 + Math.random()*3;
     scene.add(g);
     this.mesh = g;
+    this.updatePosition();
   }
+  
+  updatePosition() {
+    if (this.axis === 'x') {
+      const z = this.road + (this.dir > 0 ? -0.5 : 0.5);
+      this.mesh.position.set(this.pos, 0, z);
+      this.mesh.rotation.y = this.dir > 0 ? 0 : Math.PI;
+    } else {
+      const x = this.road + (this.dir > 0 ? 0.5 : -0.5);
+      this.mesh.position.set(x, 0, this.pos);
+      this.mesh.rotation.y = this.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
+    }
+  }
+
   update(dt){
     this.pos += this.dir * this.speed * dt;
-    if(this.axis === 'x'){
-      if(this.pos > 16) this.pos = -16;
-      if(this.pos < -16) this.pos = 16;
-      this.mesh.position.x = this.pos;
+
+    let turned = false;
+    if (this.axis === 'x') {
+      for (let vx of vRoads) {
+        if (Math.abs(this.pos - vx) < 0.5) {
+          if (Math.random() < 0.05) {
+            this.axis = 'z';
+            this.dir = Math.random() < 0.5 ? 1 : -1;
+            this.road = vx;
+            this.pos = this.mesh.position.z;
+            turned = true;
+            break;
+          }
+        }
+      }
     } else {
-      if(this.pos > 14) this.pos = -10;
-      if(this.pos < -10) this.pos = 14;
-      this.mesh.position.z = this.pos;
+      for (let hz of hRoads) {
+        if (Math.abs(this.pos - hz) < 0.5) {
+          if (Math.random() < 0.05) {
+            this.axis = 'x';
+            this.dir = Math.random() < 0.5 ? 1 : -1;
+            this.road = hz;
+            this.pos = this.mesh.position.x;
+            turned = true;
+            break;
+          }
+        }
+      }
     }
+
+    if (this.pos > 28) this.pos = -28;
+    if (this.pos < -28) this.pos = 28;
+
+    this.updatePosition();
   }
 }
 function spawnCars(){
-  for(let i=0;i<10;i++) cars.push(new Car());
+  for(let i=0;i<15;i++) cars.push(new Car());
 }
 
 // ============================================================
@@ -1201,18 +1378,27 @@ function focusOnObject(id){
   const co = cityObjects[id];
   if(!co) return;
   const p = co.group.position;
-  cam.targetPos.set(p.x + 6, 5.5, p.z + 6);
-  cam.targetLook.set(p.x, 2, p.z);
-  cam.mode = 'focus';
+  
+  camStartPos.copy(camera.position);
+  camStartLook.copy(controls.target);
+  targetPos.set(p.x + 8, 7, p.z + 8);
+  targetLook.set(p.x, 2, p.z);
+  isAnimatingCam = true;
+  camAnimTime = 0;
+  
   selectionRing.mesh.position.set(p.x, 0.05, p.z);
   selectionRing.mesh.visible = true;
   selectionRing.objId = id;
 }
 
 function returnToOverview(){
-  cam.targetPos.set(18, 20, 18);
-  cam.targetLook.set(0, 1, 0);
-  cam.mode = 'overview';
+  camStartPos.copy(camera.position);
+  camStartLook.copy(controls.target);
+  targetPos.set(25, 30, 25);
+  targetLook.set(0, 1, 0);
+  isAnimatingCam = true;
+  camAnimTime = 0;
+  
   selectionRing.mesh.visible = false;
   selectionRing.objId = null;
   state.ui.selectedObjectId = null;
@@ -1222,14 +1408,25 @@ async function cinematicAction(id, actionFn){
   const co = cityObjects[id];
   if(!co) return;
   const p = co.group.position;
-  cam.targetPos.set(p.x + 3.5, 3.5, p.z + 3.5);
-  cam.targetLook.set(p.x, 2, p.z);
+  
+  camStartPos.copy(camera.position);
+  camStartLook.copy(controls.target);
+  targetPos.set(p.x + 5, 4.5, p.z + 5);
+  targetLook.set(p.x, 2, p.z);
+  isAnimatingCam = true;
+  camAnimTime = 0;
+  
   await sleep(500);
   actionFn();
   spawnBurst(p.x, 3, p.z);
   await sleep(700);
-  cam.targetPos.set(p.x + 6, 5.5, p.z + 6);
-  cam.targetLook.set(p.x, 2, p.z);
+  
+  camStartPos.copy(camera.position);
+  camStartLook.copy(controls.target);
+  targetPos.set(p.x + 8, 7, p.z + 8);
+  targetLook.set(p.x, 2, p.z);
+  isAnimatingCam = true;
+  camAnimTime = 0;
 }
 
 function spawnBurst(x, y, z){
@@ -1280,7 +1477,7 @@ function onCanvasClick(e){
       return;
     }
   }
-  if(cam.mode !== 'overview') returnToOverview();
+  if(state.ui.selectedObjectId) returnToOverview();
 }
 
 function onObjectClick(id){
@@ -1294,7 +1491,7 @@ function onObjectClick(id){
     if(!target) return;
     if(step===2 && id==='tec'){ state.tutorialStep = 3; focusOnObject(id); state.ui.selectedObjectId = id; setTimeout(()=>openObjectModal(id), 400); render(); return; }
     if((step===3||step===4) && id==='tec'){ focusOnObject(id); state.ui.selectedObjectId = id; openObjectModal(id); render(); return; }
-    if((step===6||step===7) && id==='substation_b'){ focusOnObject(id); state.ui.selectedObjectId = id; openObjectModal(id); render(); return; }
+    if((step===6||step===7) && id==='shop'){ focusOnObject(id); state.ui.selectedObjectId = id; openObjectModal(id); render(); return; }
     if((step===8||step===9) && id==='res1'){ focusOnObject(id); state.ui.selectedObjectId = id; openObjectModal(id); render(); return; }
     return;
   }
@@ -1354,7 +1551,7 @@ function renderStats(){
   $('#budgetValue').textContent = Math.round(state.budget);
   $('#heatValue').textContent = Math.round(state.heatForPeople);
   $('#energyValue').textContent = Math.round(state.energyIntensity);
-  $('#dayInfo').textContent = `День ${Math.min(state.turn,20)}/20`;
+  $('#dayInfo').textContent = `День ${Math.min(state.turn,30)}/30`;
   $('#yearInfo').textContent = `Год ${state.year}, ${SEASON_NAMES[SEASON_ORDER.indexOf(state.season)]}`;
 
   const bPct = clamp((state.budget+100)/400*100,0,100);
@@ -1390,18 +1587,18 @@ function renderAdvisor(){
   if(state.flags.tutorialDone){ adv.classList.add('hidden'); return; }
   const step = state.tutorialStep;
   const texts = {
-    1:{text:'Это ваш регион. Каждый объект теряет энергию. Используйте мышь, чтобы вращать камеру, кликайте на здания.',btn:'Понятно'},
+    1:{text:'Это ваш регион. Зажмите левую кнопку мыши, чтобы вращать город.',btn:'Понятно'},
     2:{text:'Кликните на ТЭЦ — самое большое здание с трубами.'},
     3:{text:'Потери 55%. Причина неизвестна. Нажмите «Обследовать».'},
     4:{text:'Теперь знаете причину. Нажмите «Починить» — 30 бюджета.'},
     5:{text:'Потери снизились! Каждый сэкономленный кВт·ч превращается в бюджет.',btn:'Дальше'},
-    6:{text:'Найдите Подстанцию Б и установите счётчик за 5 бюджета.'},
+    6:{text:'Найдите Магазин и установите счётчик за 5 бюджета.'},
     7:{text:'Счётчики показывают точные цифры. Без них — только догадки.',btn:'Дальше'},
     8:{text:'Кликните на Жилмассив №1 и поговорите с жителями.'},
     9:{text:'Люди — условие успеха. Если им холодно, всё теряет смысл.',btn:'Дальше'},
     10:{text:'Завершите ход — увидите, сколько бюджета принесла работа.'},
     11:{text:'Чем ниже энергоёмкость — тем больше денег каждый ход. Петля роста.',btn:'Понятно'},
-    12:{text:'Обучение завершено. Цель: энергоёмкость ≤ 70. И люди не ниже 70.',btn:'Играть'}
+    12:{text:'Обучение завершено. Цель: энергоёмкость ≤ 70. Доверие ≥ 35.',btn:'Играть'}
   };
   const info = texts[step];
   if(!info){ adv.classList.add('hidden'); return; }
@@ -1436,7 +1633,7 @@ function finishTutorial(){
 function getHighlightTarget(){
   const s = state.tutorialStep;
   if(s===2||s===3||s===4) return 'tec';
-  if(s===6||s===7) return 'substation_b';
+  if(s===6||s===7) return 'shop';
   if(s===8||s===9) return 'res1';
   return null;
 }
@@ -1459,7 +1656,7 @@ function canDoAction(action, obj){
     const step = state.tutorialStep;
     if(step===3) return (action==='study'&&obj.id==='tec')?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
     if(step===4) return (action==='repair'&&obj.id==='tec')?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
-    if(step===6) return (obj.id==='substation_b' && (action==='measure'||action==='study'))?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
+    if(step===6) return (obj.id==='shop' && (action==='measure'||action==='study'))?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
     if(step===8) return (action==='talk'&&obj.id==='res1')?{ok:true}:{ok:false,reason:'Следуйте подсказкам'};
     return {ok:false,reason:'Следуйте подсказкам'};
   }
@@ -1469,7 +1666,7 @@ function canDoAction(action, obj){
     return {ok:true};
   }
   if(action==='measure'){
-    const isTutStep6 = !state.flags.tutorialDone && state.tutorialStep===6 && obj.id==='substation_b';
+    const isTutStep6 = !state.flags.tutorialDone && state.tutorialStep===6 && obj.id==='shop';
     if(!obj.studied && !isTutStep6) return {ok:false,reason:'Сначала обследуйте'};
     if(obj.metered) return {ok:false,reason:'Счётчик уже стоит'};
     if(state.attention<1) return {ok:false,reason:'Нет внимания'};
@@ -1596,7 +1793,7 @@ function executeBuild(buildId, obj){
     if(buildId==='build_biogas'){ obj.loss = 0; state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+5,0,100); state.builds.biogas = true; unlockFact('fact_biogas'); unlockFact('fact_local'); state.pendingEffects.push({dueTurn:state.turn+1, budget:10}); }
     if(buildId==='build_wood_chips'){ state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+8,0,100); state.builds.wood_chips = true; unlockFact('fact_les'); unlockFact('fact_local'); for(let i=1;i<=3;i++) state.pendingEffects.push({dueTurn:state.turn+i, budget:5}); }
     if(buildId==='build_sorting'){ state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+6,0,100); state.builds.sorting = true; unlockFact('fact_dump'); unlockFact('fact_local'); }
-    if(buildId==='build_insulation'){ obj.loss = Math.max(0, obj.loss-10); state.heatForPeople = clamp(state.heatForPeople+10,0,100); state.builds.insulation++; obj.insulated = true; unlockFact('fact_insulation'); }
+    if(buildId==='build_insulation'){ obj.loss = Math.max(0, obj.loss-10); state.heatForPeople = clamp(state.heatForPeople+10,0,100); state.builds.insulation++; obj.insulated = true; unlockFact('fact_insulation'); state.flags.selfishness = Math.max(0, state.flags.selfishness - 1); }
     if(buildId==='build_smart_meter_industrial'){ obj.loss = Math.max(0, obj.loss-15); state.flags.metersInstalled += 3; state.builds.smart_meter = true; unlockFact('fact_smart_meter'); }
     if(buildId==='build_solar'){ state.flags.localGenerators++; state.heatForPeople = clamp(state.heatForPeople+3,0,100); state.builds.solar = true; unlockFact('fact_solar'); unlockFact('fact_local'); }
     recalcEnergyIntensity();
@@ -1652,7 +1849,9 @@ function addBuiltStructure(objId, buildId){
   }
   if(buildId==='build_insulation'){
     co.group.traverse(c=>{
-      if(c.isMesh && c.material.color.getHex()===0xb8a888) c.material.color.setHex(0xd0c090);
+      if(c.isMesh && (c.material.color.getHex()===0xb8a888 || c.material.color.getHex()===0xa89880 || c.material.color.getHex()===0xc8b898 || c.material.color.getHex()===0x988870 || c.material.color.getHex()===0xd0c0a0)) {
+        c.material.color.offsetHSL(0, 0, 0.1);
+      }
     });
   }
 }
@@ -1689,7 +1888,7 @@ function openObjectModal(id){
   if(tutActive){
     if(step===3) advisorText = '<b>Советник:</b> Потери 55%. Причина неизвестна. Нажмите «Обследовать».';
     if(step===4) advisorText = '<b>Советник:</b> Теперь знаете причину. Нажмите «Починить» — 30 бюджета.';
-    if(step===6 && obj.id==='substation_b') advisorText = '<b>Советник:</b> Установите счётчик за 5 бюджета.';
+    if(step===6 && obj.id==='shop') advisorText = '<b>Советник:</b> Установите счётчик за 5 бюджета.';
     if(step===8 && obj.id==='res1') advisorText = '<b>Советник:</b> Поговорите с жителями — это бесплатно.';
   }
 
@@ -1710,7 +1909,7 @@ function openObjectModal(id){
 
   const actions = [];
   const buildAvail = getAvailableBuilds(obj);
-  const isTutStep6 = !state.flags.tutorialDone && state.tutorialStep===6 && obj.id==='substation_b';
+  const isTutStep6 = !state.flags.tutorialDone && state.tutorialStep===6 && obj.id==='shop';
 
   if(!obj.studied && !isTutStep6) actions.push({id:'study', label:'👁 Обследовать', cost:'1 внимание', primary:true});
   if((obj.studied || isTutStep6) && !obj.metered) actions.push({id:'measure', label:'📊 Замерить', cost:'1 внимание + 5 💰', primary: isTutStep6});
@@ -1759,7 +1958,6 @@ function openTalkModal(id){
 
   let dialog = DIALOGS[id] || {portrait:'🧑', name:'Житель', text:'Здравствуйте.', replies:[{text:'Понятно',heat:3}]};
   
-  // Если постройка уже выполнена, меняем текст на благодарность
   if (isObjBuildDone(obj)) {
       dialog = { 
           portrait: dialog.portrait, 
@@ -1804,6 +2002,7 @@ function applyTalkResult(obj, reply){
   playSound('click');
   floatText(`+${reply.heat} 🧡`, window.innerWidth/2, window.innerHeight/2, 'var(--green)');
   state.log.push({turn:state.turn, action:'talk', target:obj.id});
+  state.flags.selfishness = Math.max(0, state.flags.selfishness - 1); // Общение снижает эгоизм
 
   closeModal();
   render(); saveGame();
@@ -1884,11 +2083,14 @@ function showEvent(event) {
             const idx = parseInt(btn.dataset.idx);
             const opt = event.options[idx];
             opt.effect(state);
-            recalcEnergyIntensity(); // пересчитываем после изменения
+            if (opt.selfish) {
+                state.flags.selfishness++;
+                floatText("Жители запомнят это...", window.innerWidth/2, window.innerHeight/2 - 100, 'var(--red)');
+            }
+            recalcEnergyIntensity(); 
             closeModal();
             saveGame();
             render();
-            // Показываем письмо, если оно есть, или просто продолжаем
             if(state.pendingLetter) {
                 const l = state.pendingLetter;
                 state.pendingLetter = null;
@@ -1926,36 +2128,24 @@ function openHelp(){
     <div class="modal-title">❓ Как играть</div>
     <div class="help-section">
       <h3><span class="help-icon">🏭</span> Потери энергии</h3>
-      <p>Каждое здание <b>теряет энергию</b> — тепло уходит через дырявые трубы, старые окна. Чем выше потери, тем <b>меньше бюджета</b> вы получаете каждый ход.</p>
-      <p>Красная точка над зданием = большие потери. Кликните на здание → <b>«Обследовать»</b> → <b>«Починить»</b>.</p>
+      <p>Каждое здание <b>теряет энергию</b>. Чем выше потери, тем <b>меньше бюджета</b> вы получаете каждый ход.</p>
     </div>
     <div class="help-section">
       <h3><span class="help-icon">⚡</span> Зачем нужны подстанции?</h3>
-      <p>Подстанции распределяют энергию от источников (ТЭЦ, котельные) к потребителям. Если их не обслуживать, они теряют энергию при передаче.</p>
+      <p>Они распределяют энергию. Если их не обслуживать, они теряют энергию при передаче.</p>
     </div>
     <div class="help-section">
       <h3><span class="help-icon">📊</span> Зачем замеры?</h3>
-      <p>Без счётчика вы видите только <b>примерные</b> потери. Счётчик показывает <b>точную</b> цифру и открывает карточки в справочнике.</p>
+      <p>Без счётчика вы видите <b>примерные</b> потери. Счётчик показывает <b>точную</b> цифру и открывает карточки.</p>
     </div>
     <div class="help-section">
       <h3><span class="help-icon">🧡</span> Доверие людей</h3>
-      <p>Сердца — это <b>доверие жителей</b>. Не валюта, а условие выживания проекта.</p>
-      <p>• Упало <b>ниже 25</b> → <b>социальный взрыв, игра провалена</b><br>
-      • Ниже 60 → плохая концовка<br>
-      • Выше 70 → путь к лучшей концовке «Резонанс»</p>
-      <p>Доверие повышают: <b>переговоры</b>, <b>утепление</b>, хорошие письма.</p>
-    </div>
-    <div class="help-section">
-      <h3><span class="help-icon">💬</span> Переговоры</h3>
-      <p>Кликните на здание → <b>«Переговорить»</b>. Вы услышите жителя и выберете ответ. Каждый ответ даёт <b>+3..8 доверия</b>. Максимум 2 раза на объект.</p>
-    </div>
-    <div class="help-section">
-      <h3><span class="help-icon">⚠️</span> События</h3>
-      <p>Иногда будут происходить <b>кризисы</b> (морозы, аварии). Вам придётся выбирать: потратить деньги, потерять доверие или допустить рост энергоёмкости.</p>
+      <p>Сердца — это <b>доверие</b>. Упало <b>ниже 35</b> → <b>игра провалена</b>. Выше 70 → путь к лучшей концовке.</p>
+      <p><b>Важно:</b> Если вы выбираете эгоистичные решения (только ради бюджета), доверие будет падать. Общайтесь с людьми и утепляйте дома, чтобы они были на вашей стороне!</p>
     </div>
     <div class="help-section">
       <h3><span class="help-icon">🎯</span> Цель</h3>
-      <p>20 ходов. Снизить энергоёмкость до <b>70 или ниже</b>. Сохранить доверие людей <b>70+</b>. Не уйти в долг.</p>
+      <p>30 ходов. Снизить энергоёмкость до <b>70 или ниже</b>. Сохранить доверие людей <b>от 35</b>.</p>
     </div>`;
   openModal(html);
 }
@@ -1994,17 +2184,23 @@ function endTurn(){
   state.attention = state.flags.tutorialDone ? 3 : 4;
   state.ui.selectedObjectId = null;
 
-  if(state.turn % 4 === 0 && state.turn <= 20){
-    const drop = state.flags.localGenerators >= 2 ? 2 : 5;
+  // Штраф за зиму
+  if(state.turn % 4 === 0 && state.turn <= 30){
+    const drop = state.flags.localGenerators >= 2 ? 5 : 10;
     state.heatForPeople = clamp(state.heatForPeople - drop, 0, 100);
     unlockFact('fact_winter');
   }
 
-  if(checkGameOver()){ state.ui.isAnimating = false; return; }
-  if(state.turn > 20){ state.ui.isAnimating = false; saveGame(); render(); checkEnding(); return; }
+  // Механика эгоизма: жители негодуют
+  if (state.flags.selfishness >= 3) {
+    state.heatForPeople = clamp(state.heatForPeople - 5, 0, 100);
+    floatText("Жители недовольны вашим эгоизмом! -5 🧡", window.innerWidth/2, window.innerHeight/2 - 100, 'var(--red)');
+  }
 
-  // События
-  if (state.turn % 4 === 2 && state.turn <= 18) {
+  if(checkGameOver()){ state.ui.isAnimating = false; return; }
+  if(state.turn > 30){ state.ui.isAnimating = false; saveGame(); render(); checkEnding(); return; }
+
+  if (state.turn % 3 === 2 && state.turn <= 28) {
       const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
       state.pendingEvent = ev;
   }
@@ -2054,9 +2250,9 @@ function showTurnBanner(income, onDone){
 }
 
 function checkGameOver(){
-  if(state.heatForPeople < 25){ showEnding('fail_heat'); return true; }
-  if(state.energyIntensity >= 95 && state.heatForPeople < 40){ showEnding('fail_catastrophe'); return true; }
-  if(state.budget < -100){ showEnding('fail_budget'); return true; }
+  if(state.heatForPeople < 35){ showEnding('fail_heat'); return true; }
+  if(state.energyIntensity >= 95 && state.heatForPeople < 45){ showEnding('fail_catastrophe'); return true; }
+  if(state.budget < -50){ showEnding('fail_budget'); return true; }
   return false;
 }
 
@@ -2071,6 +2267,7 @@ function checkEnding(){
   } else { ending = 'compromise'; }
   showEnding(ending);
 }
+
 function showEnding(key){
   const e = ENDINGS[key];
   if(!e) return;
@@ -2083,15 +2280,17 @@ function showEnding(key){
       <div class="ending-title">${e.name}</div>
       <div class="ending-text">${e.text}</div>
       <div class="ending-buttons">
-        <button class="btn-start" id="btnPlayAgain">Играть снова</button>
-        <button class="btn-reset" id="btnDownloadCard">Скачать карточку</button>
+        <button class="btn-start" id="btnContinueEnding">Продолжить</button>
       </div>
     </div>`;
   document.body.appendChild(screen);
-  $('#btnPlayAgain').addEventListener('click', ()=>{ resetGame(); location.reload(); });
-  $('#btnDownloadCard').addEventListener('click', ()=>downloadCard(key));
-  setTimeout(()=>showDiary(e), 2000);
+  
+  $('#btnContinueEnding').addEventListener('click', () => {
+    screen.remove();
+    showDiary(e);
+  });
 }
+
 function showDiary(e){
   const screen = document.createElement('div');
   screen.className = 'diary-screen';
@@ -2103,6 +2302,7 @@ function showDiary(e){
   screen.innerHTML = html;
   document.body.appendChild(screen);
 }
+
 function downloadCard(endingKey){
   const e = ENDINGS[endingKey];
   const w = 900, h = 700;
@@ -2131,7 +2331,7 @@ function downloadCard(endingKey){
       ['Энергоёмкость:', Math.round(state.energyIntensity)+' / 70'],
       ['Тепло для людей:', Math.round(state.heatForPeople)+' / 100'],
       ['Бюджет:', Math.round(state.budget)],
-      ['Ходов пройдено:', Math.min(state.turn-1,20)+' / 20'],
+      ['Ходов пройдено:', Math.min(state.turn-1,30)+' / 30'],
       ['Локальных генераторов:', state.flags.localGenerators],
       ['Установлено счётчиков:', state.flags.metersInstalled]
     ];
@@ -2161,40 +2361,29 @@ function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1);
 
-  // Камера
-  if(cam.mode === 'overview'){
-    cam.overviewAngle += dt * 0.08;
-    const r = 26;
-    cam.targetPos.x = Math.cos(cam.overviewAngle) * r;
-    cam.targetPos.z = Math.sin(cam.overviewAngle) * r;
-    cam.targetPos.y = 20;
-    cam.targetLook.set(0, 1, 0);
+  if(isAnimatingCam) {
+    camAnimTime += dt * 2.5;
+    const ease = 1 - Math.pow(1 - Math.min(camAnimTime, 1), 3);
+    camera.position.lerpVectors(camStartPos, targetPos, ease);
+    controls.target.lerpVectors(camStartLook, targetLook, ease);
+    if (camAnimTime >= 1) isAnimatingCam = false;
   }
-  const lerpSpeed = Math.min(3 * dt, 1);
-  cam.currentPos.lerp(cam.targetPos, lerpSpeed);
-  cam.currentLook.lerp(cam.targetLook, lerpSpeed);
-  camera.position.copy(cam.currentPos);
-  camera.lookAt(cam.currentLook);
+  controls.update();
 
-  // Кольцо
   if(selectionRing.mesh.visible){
     const s = 1 + Math.sin(performance.now() * 0.005) * 0.1;
     selectionRing.mesh.scale.set(s, s, 1);
     selectionRing.mesh.rotation.z += dt * 0.5;
   }
 
-  // Дым
   state.objects.forEach(obj=>{
     const co = cityObjects[obj.id];
     if(co && co.smoke) co.smoke.update(dt);
   });
 
-  // Люди
   people.forEach(p=>p.update(dt));
-  // Машины
   cars.forEach(c=>c.update(dt));
 
-  // Анимации масштаба
   for(let i=activeAnimations.length-1; i>=0; i--){
     const a = activeAnimations[i];
     const elapsed = (performance.now() - a.start) / a.duration;
@@ -2214,42 +2403,34 @@ function animate(){
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 function init(){
+  // Принудительно очищаем сохранение при запуске
+  localStorage.removeItem(SAVE_KEY);
+  
   initThree();
   animate();
 
   setTimeout(()=>{
     $('#loader').classList.add('hidden');
-    const loaded = loadSave();
-    if(loaded && loaded.turn>0){
-      state = loaded;
-      $('#btnStart').textContent = 'Продолжить';
-      $('#btnReset').classList.remove('hidden');
-      $('#btnStart').addEventListener('click', ()=>startGame(false));
-      $('#btnReset').addEventListener('click', ()=>{
-        if(confirm('Сбросить прогресс?')){ resetGame(); $('#btnStart').textContent='Начать'; $('#btnReset').classList.add('hidden'); }
-      });
-    } else {
-      state = createDefaultState();
-      $('#btnStart').addEventListener('click', ()=>startGame(true));
-    }
+    state = createDefaultState();
+    $('#btnStart').addEventListener('click', ()=>startGame(true));
     $('#startScreen').classList.remove('hidden');
   }, 800);
 
   $('#btnHelp').addEventListener('click', ()=>{ playSound('click'); openHelp(); });
   $('#btnEncyclopedia').addEventListener('click', ()=>{ playSound('click'); openEncyclopedia(); });
   $('#btnSound').addEventListener('click', ()=>{ state.ui.soundOn = !state.ui.soundOn; saveGame(); $('#btnSound').textContent = state.ui.soundOn?'🔊':'🔇'; });
-  $('#btnResetGame').addEventListener('click', ()=>{ if(confirm('Сбросить игру?')){ resetGame(); location.reload(); } });
+  $('#btnResetGame').addEventListener('click', ()=>{ if(confirm('Начать заново?')){ resetGame(); location.reload(); } });
   $('#btnEndTurn').addEventListener('click', ()=>{ playSound('click'); endTurn(); });
   $('#btnOverview').addEventListener('click', ()=>{ playSound('click'); returnToOverview(); });
 
   $('#budgetStat').addEventListener('mouseenter', ()=>showInfoTooltip('Бюджет тратится на ремонт и постройки. Каждый ход пополняется от эффективности.', $('#budgetStat')));
-  $('#heatStat').addEventListener('mouseenter', ()=>showInfoTooltip('Доверие людей. Ниже 25 — социальный взрыв и проигрыш. Нужно 70+ для лучшей концовки.', $('#heatStat')));
+  $('#heatStat').addEventListener('mouseenter', ()=>showInfoTooltip('Доверие людей. Ниже 35 — социальный взрыв и проигрыш. Нужно 70+ для лучшей концовки.', $('#heatStat')));
   $('#energyStat').addEventListener('mouseenter', ()=>showInfoTooltip('Энергоёмкость. Цель — снизить до 70. Каждая единица потерь влияет на бюджет.', $('#energyStat')));
 
   document.addEventListener('keydown', e=>{
     if(e.key === 'Escape'){
       if(state.ui.activeModal) closeModal();
-      else if(cam.mode !== 'overview') returnToOverview();
+      else if(state.ui.selectedObjectId) returnToOverview();
     }
   });
 }
